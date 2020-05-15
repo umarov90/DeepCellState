@@ -62,7 +62,7 @@ BATCH_NORM_DECAY = 0.997
 BATCH_NORM_EPSILON = 1e-5
 L2_WEIGHT_DECAY = 2e-5
 input_size = 978
-nb_epoch = 20
+nb_epoch = 3
 batch_size = 128
 latent_dim = 100
 
@@ -139,6 +139,7 @@ def parse_data(file):
     df = pd.read_csv(file, sep="\t")
     df.reset_index(drop=True, inplace=True)
     df = df.drop('cid', 1)
+    df = df.groupby(['cell_id', 'pert_id', 'pert_idose', 'pert_itime'], as_index=False).median()
     cell_ids = df["cell_id"].values
     pert_ids = df["pert_id"].values
     all_pert_ids = set(pert_ids)
@@ -147,23 +148,38 @@ def parse_data(file):
     perts = np.stack([cell_ids, pert_ids, pert_idose, pert_itime]).transpose()
     df = df.drop(['cell_id', 'pert_id', 'pert_idose', 'pert_itime'], 1)
     data = df.values
-    max_value = np.max(data)
-    data = np.divide(data, max_value)
+    data = (data - np.min(data)) / (np.max(data) - np.min(data))
     data = np.expand_dims(data, axis=-1)
     return data, perts, all_pert_ids
 
 
 def split_data(data, meta):
     cell_types = set([meta[i][0] for i, x in enumerate(meta)])
+    cell_types_to_remove = cell_types.copy()
     indexes = []
     dmso = {}
+    aids = []
     for i, x in enumerate(meta):
+        if meta[i][0] == "A375":
+            aid = str(meta[i][1]) + str(meta[i][2]) + meta[i][3]
+            if aid in aids:
+                print("Problem!")
+            aids.append(aid)
         if meta[i][1] == "DMSO":
             indexes.append(i)
-            dmso.setdefault(meta[i][0], []).append(data[i])
+            dmso.setdefault(meta[i][0] + "_" + meta[i][3], []).append(data[i])
+            if meta[i][0] in cell_types_to_remove:
+                cell_types_to_remove.remove(meta[i][0])
 
     for k in dmso.keys():
-        dmso[k] = np.mean(np.asarray(dmso[k]), axis=0, keepdims=True)
+        if len(dmso[k]) > 1:
+            print("Problem!")
+        dmso[k] = np.median(np.asarray(dmso[k]), axis=0, keepdims=True)
+        #dmso[k] = np.clip(dmso[k] + np.percentile(dmso[k], 10), -1, 1)
+
+    for cell in cell_types_to_remove:
+        indexes.extend([i for i, p in enumerate(meta) if p[0] == cell])
+    cell_types = cell_types - cell_types_to_remove
 
     data = np.delete(data, indexes, axis=0)
     meta = np.delete(meta, indexes, axis=0)
@@ -177,24 +193,9 @@ def split_data(data, meta):
     test_data = data[split:]
     train_meta = meta[:split]
     test_meta = meta[split:]
-    for cell in cell_types:
-        if cell not in dmso:
-            dmso[cell] = np.mean(np.asarray([train_data[i] for i, p in enumerate(train_meta) if p[0] == cell]), axis=0,
-                                 keepdims=True)
+
+
     return train_data, test_data, train_meta, test_meta, cell_types, dmso
-
-
-def replace_intermediate_layer_in_keras(model, layer_id, new_layer):
-    layers = [l for l in model.layers]
-    x = layers[0].output
-    for i in range(1, len(layers)):
-        if i == layer_id:
-            x = new_layer(x)
-        else:
-            x = layers[i](x)
-
-    new_model = Model(input=layers[0].input, output=x)
-    return new_model
 
 
 def get_duration(param):
@@ -224,8 +225,7 @@ def get_profile(data, meta_data, test_pert):
     meta_data = meta_data[test_pert[1]]
     if test_pert[2] == "-666" or test_pert[3] == "-666" or test_pert[2] == -666 or test_pert[3] == -666:
         return -1, None
-    pert_list = [p[1] for p in meta_data if
-                 p[0][0] != test_pert[0] and p[0][2] == test_pert[2] and p[0][3] == test_pert[3]]
+    pert_list = [p[1] for p in meta_data if p[0][2] == test_pert[2] and p[0][3] == test_pert[3]]
     if len(pert_list) > 0:
         random_best = randint(0, len(pert_list) - 1)
         return pert_list[random_best], np.asarray([data[pert_list[random_best]]])
@@ -233,13 +233,28 @@ def get_profile(data, meta_data, test_pert):
         return -1, None
 
 
-def calculate_fold_change_profile(dmso_a375, closest_pert_profile, dmso_mcf7):
-    fold_change = closest_pert_profile - dmso_a375
-    # fold_change = np.clip(fold_change, -4, 4)
-    baseline = dmso_mcf7 + fold_change
-    return np.clip(baseline, -1, 1)
+def calculate_fold_change_profile(dmso_train, closest_pert_profile, dmso_test):
+    baseline = zeros(closest_pert_profile.shape)
+    dt = 0.05
+    for i in range(input_size):
+        if dmso_train[0][i][0] < dt:
+            if closest_pert_profile[0][i][0] < dt:
+                baseline[0][i][0] = dmso_test[0][i][0]
+            if closest_pert_profile[0][i][0] > dt:
+                baseline[0][i][0] = closest_pert_profile[0][i][0]
+        elif closest_pert_profile[0][i][0] < dt:
+            if dmso_train[0][i][0] < dt:
+                baseline[0][i][0] = dmso_test[0][i][0]
+            if dmso_train[0][i][0] > dt:
+                baseline[0][i][0] = 0
+        else:
+            baseline[0][i][0] = (closest_pert_profile[0][i][0] / dmso_train[0][i][0]) * dmso_test[0][i][0]
+
+    return baseline
 
 
+data_folder = "/home/user/data/DeepFake/"
+os.chdir(data_folder)
 # data
 if Path("arrays/train_data").is_file():
     print("Loading existing data")
@@ -290,7 +305,7 @@ else:
         pickle.dump(cell_decoders[cell], open("./models/" + cell + "_decoder_weights", "wb"))
     del decoder
 
-should_train = True
+should_train = False
 
 if should_train:
     del autoencoder
@@ -449,7 +464,8 @@ results = {}
 skipped = 0
 img_count = 0
 original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
-for i in range(len(test_data)):
+test_num = 400 #len(test_data)
+for i in range(test_num):
     if i % 100 == 0:
         print(str(i) + " - ", end="", flush=True)
     test_meta_object = test_meta[i]
@@ -467,11 +483,11 @@ for i in range(len(test_data)):
     results["zero vector loss is: "] = results.get("zero vector loss is: ", 0) + test_loss(zeros(decoded1.shape),
                                                                                            test_profile)
 
-    results["predict DMSO: "] = results.get("predict DMSO: ", 0) + test_loss(dmso[test_meta[i][0]], test_profile)
+    results["predict DMSO: "] = results.get("predict DMSO: ", 0) + test_loss(dmso[test_meta[i][0] + "_" + test_meta[i][3]], test_profile)
 
-    # baseline = calculate_fold_change_profile(dmso_a375, closest_profile, dmso_mcf7)
-    # results["predict fold change: "] = results.get("predict fold change: ", 0) + test_loss(
-    #    baseline, test_profile)
+    baseline = calculate_fold_change_profile(dmso[train_meta[closest][0] + "_" + train_meta[closest][3]],
+                                             closest_profile, dmso[test_meta[i][0] + "_" + test_meta[i][3]])
+    results["predict fold change: "] = results.get("predict fold change: ", 0) + test_loss(baseline, test_profile)
 
     results["closest profile: "] = results.get("closest profile: ", 0) + test_loss(closest_profile, test_profile)
 
@@ -482,8 +498,8 @@ for i in range(len(test_data)):
 
     if img_count < 25:
         img_count = img_count + 1
-        data = [decoded1, dmso[test_meta[i][0]], closest_profile, decoded3]
-        names = ["ground truth", "our method", "dmso", "closest profile", "cheating"]
+        data = [decoded1, dmso[test_meta[i][0] + "_" + test_meta[i][3]], closest_profile, baseline, decoded3]
+        names = ["ground truth", "our method", "dmso", "closest profile", "baseline", "cheating"]
         fig, axes = plt.subplots(nrows=len(data) + 1, ncols=1, figsize=(14, 4))
         fig.subplots_adjust(left=None, bottom=None, right=0.85, top=None, wspace=0.4, hspace=1.4)
         cbar_ax = fig.add_axes([0.9, 0.15, 0.05, 0.7])
@@ -512,6 +528,6 @@ for i in range(len(test_data)):
         plt.close(None)
 print(" Done")
 for key, value in results.items():
-    print(key + str(value / (len(test_data) - skipped)))
+    print(key + str(value / (test_num - skipped)))
 
 print("skipped " + str(skipped))
