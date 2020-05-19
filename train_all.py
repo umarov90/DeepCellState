@@ -1,7 +1,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import numpy as np
@@ -52,7 +52,7 @@ tf.compat.v1.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
 config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
-config2 = tf.config.experimental.set_memory_growth(physical_devices[1], True)
+# config2 = tf.config.experimental.set_memory_growth(physical_devices[1], True)
 
 tf.random.set_seed(0)
 np.random.seed(0)
@@ -62,9 +62,10 @@ BATCH_NORM_DECAY = 0.997
 BATCH_NORM_EPSILON = 1e-5
 L2_WEIGHT_DECAY = 2e-5
 input_size = 978
-nb_epoch = 3
+nb_epoch = 10
 batch_size = 128
-latent_dim = 100
+latent_dim = 8
+vmin = -1
 
 
 def build(input_size, channels, latent_dim, filters=(64, 128), encoder=None):
@@ -115,6 +116,7 @@ def build(input_size, channels, latent_dim, filters=(64, 128), encoder=None):
     # Maybe her BN as well
     ###########################################################################################################
     x = Conv1DTranspose(channels, 3, padding="same")(x)
+    #outputs = LeakyReLU(alpha=0.2)(x)
     outputs = Activation('tanh')(x)
     # outputs = BatchNormalization()(outputs)
     # build the decoder model
@@ -148,41 +150,33 @@ def parse_data(file):
     perts = np.stack([cell_ids, pert_ids, pert_idose, pert_itime]).transpose()
     df = df.drop(['cell_id', 'pert_id', 'pert_idose', 'pert_itime'], 1)
     data = df.values
-    data = (data - np.min(data)) / (np.max(data) - np.min(data))
+    data = data / np.max(data)
+    #data = (data - np.min(data)) / (np.max(data) - np.min(data))
     data = np.expand_dims(data, axis=-1)
     return data, perts, all_pert_ids
 
 
 def split_data(data, meta):
     cell_types = set([meta[i][0] for i, x in enumerate(meta)])
-    cell_types_to_remove = cell_types.copy()
     indexes = []
     dmso = {}
-    aids = []
     for i, x in enumerate(meta):
-        if meta[i][0] == "A375":
-            aid = str(meta[i][1]) + str(meta[i][2]) + meta[i][3]
-            if aid in aids:
-                print("Problem!")
-            aids.append(aid)
         if meta[i][1] == "DMSO":
             indexes.append(i)
-            dmso.setdefault(meta[i][0] + "_" + meta[i][3], []).append(data[i])
-            if meta[i][0] in cell_types_to_remove:
-                cell_types_to_remove.remove(meta[i][0])
-
-    for k in dmso.keys():
-        if len(dmso[k]) > 1:
-            print("Problem!")
-        dmso[k] = np.median(np.asarray(dmso[k]), axis=0, keepdims=True)
-        #dmso[k] = np.clip(dmso[k] + np.percentile(dmso[k], 10), -1, 1)
-
-    for cell in cell_types_to_remove:
-        indexes.extend([i for i, p in enumerate(meta) if p[0] == cell])
-    cell_types = cell_types - cell_types_to_remove
+            dmso.setdefault(meta[i][0], []).append(data[i])  # np.std(data[i])
 
     data = np.delete(data, indexes, axis=0)
     meta = np.delete(meta, indexes, axis=0)
+
+    for k in dmso.keys():
+        dmso[k] = np.median(np.asarray(dmso[k]), axis=0, keepdims=True)
+
+    for cell in cell_types:
+        if cell not in dmso.keys():
+            dmso[cell] = np.median([data[i] for i, m in enumerate(meta) if m[0] == cell], axis=0, keepdims=True)
+
+    for i in range(len(data)):
+        data[i] = data[i] - dmso[meta[i][0]]
 
     rng_state = np.random.get_state()
     np.random.shuffle(data)
@@ -193,7 +187,6 @@ def split_data(data, meta):
     test_data = data[split:]
     train_meta = meta[:split]
     test_meta = meta[split:]
-
 
     return train_data, test_data, train_meta, test_meta, cell_types, dmso
 
@@ -206,19 +199,6 @@ def get_duration(param):
     elif vals[1] == "h":
         duration = duration * 60 * 60
     return duration
-
-
-def get_profile_slow(data, meta_data, test_pert):
-    if test_pert[2] == "-666" or test_pert[3] == "-666" or test_pert[2] == -666 or test_pert[3] == -666:
-        return -1, None
-    pert_list = [i for i, p in enumerate(meta_data) if
-                 p[1] == test_pert[1] and p[0] != test_pert[0] and p[2] == test_pert[2] and p[3] == test_pert[3]]
-
-    if len(pert_list) > 0:
-        random_best = randint(0, len(pert_list) - 1)
-        return pert_list[random_best], np.asarray([data[pert_list[random_best]]])
-    else:
-        return -1, None
 
 
 def get_profile(data, meta_data, test_pert):
@@ -305,7 +285,7 @@ else:
         pickle.dump(cell_decoders[cell], open("./models/" + cell + "_decoder_weights", "wb"))
     del decoder
 
-should_train = False
+should_train = True
 
 if should_train:
     del autoencoder
@@ -319,19 +299,29 @@ if should_train:
 
         sub_epochs = 4
         if e == nb_epoch - 1:
-            sub_epochs = 8
+            sub_epochs = sub_epochs * 2
 
-        if e < nb_epoch - 1:
-            print("Main autoencoder" + " =========================================")
-            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-            encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-            autoencoder.fit(train_data, train_data, epochs=sub_epochs, batch_size=batch_size)
+        # if e < nb_epoch - 1:
+        #     print("Main autoencoder" + " =========================================")
+        #     for layer in encoder.layers:
+        #         layer.trainable = True
+        #     encoder.trainable = True
+        #     autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+        #     encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+        #     autoencoder.fit(train_data, train_data, epochs=sub_epochs, batch_size=batch_size)
+
+        # for layer in encoder.layers:
+        #     layer.trainable = False
+        # encoder.trainable = False
+        # autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+        # encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
 
         for layer in encoder.layers:
-            layer.trainable = False
-        encoder.trainable = False
-        autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-        encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+            layer.trainable = True
+        encoder.trainable = True
+        autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-5))
+        encoder.compile(loss="mse", optimizer=Adam(lr=1e-5))
+
 
         original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
         for cell in cell_types:
@@ -343,43 +333,39 @@ if should_train:
             gc.collect()
         autoencoder.get_layer("decoder").set_weights(original_main_decoder_weights)
 
-        print("latent encoder")
-        for layer in encoder.layers:
-            layer.trainable = True
-        encoder.trainable = True
-        autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-5))
-        encoder.compile(loss="mse", optimizer=Adam(lr=1e-5))
 
-        latent_epochs = 4
-        if e == nb_epoch - 1:
-            print("no latent training")
-            break
-        if e == nb_epoch - 2:
-            latent_epochs = 8
-        for k in range(latent_epochs):
-            print("finding closest perturbations")
-            closest_perturbations = []
-            closest_indexes = []
-            for i in range(len(train_data)):
-                if i % 1000 == 0:
-                    print(str(i) + " - ", end="", flush=True)
-                    same_pert_time = 0
-                closest, profile = get_profile(train_data, meta_dictionary_pert, train_meta[i])
-                if closest != -1:
-                    closest_perturbations.append(train_data[i])
-                closest_indexes.append(closest)
-            closest_perturbations = np.asarray(closest_perturbations)
 
-            print("Done")
-            latent_vectors = encoder.predict(train_data)
-            closest_profile_latent_vectors = []
-            for i in range(len(train_data)):
-                if closest_indexes[i] != -1:
-                    closest_profile_latent_vectors.append(latent_vectors[closest_indexes[i]])
-            closest_profile_latent_vectors = np.asarray(closest_profile_latent_vectors)
-            encoder.fit(closest_perturbations, closest_profile_latent_vectors, epochs=2, batch_size=batch_size)
-
-        latent_vectors = encoder.predict(train_data)
+        # print("latent encoder")
+        # latent_epochs = 4
+        # if e == nb_epoch - 1:
+        #     print("no latent training")
+        #     break
+        # if e == nb_epoch - 2:
+        #     latent_epochs = 8
+        # for k in range(latent_epochs):
+        #     print("finding closest perturbations")
+        #     closest_perturbations = []
+        #     closest_indexes = []
+        #     for i in range(len(train_data)):
+        #         if i % 1000 == 0:
+        #             print(str(i) + " - ", end="", flush=True)
+        #             same_pert_time = 0
+        #         closest, profile = get_profile(train_data, meta_dictionary_pert, train_meta[i])
+        #         if closest != -1:
+        #             closest_perturbations.append(train_data[i])
+        #         closest_indexes.append(closest)
+        #     closest_perturbations = np.asarray(closest_perturbations)
+        #
+        #     print("Done")
+        #     latent_vectors = encoder.predict(train_data)
+        #     closest_profile_latent_vectors = []
+        #     for i in range(len(train_data)):
+        #         if closest_indexes[i] != -1:
+        #             closest_profile_latent_vectors.append(latent_vectors[closest_indexes[i]])
+        #     closest_profile_latent_vectors = np.asarray(closest_profile_latent_vectors)
+        #     encoder.fit(closest_perturbations, closest_profile_latent_vectors, epochs=2, batch_size=batch_size)
+        #
+        latent_vectors = encoder.predict(train_data[:5])
         data = [latent_vectors[0], latent_vectors[1], latent_vectors[2], latent_vectors[3],
                 latent_vectors[4]]
         names = ["1", "2", "3", "4", "5"]
@@ -390,10 +376,10 @@ if should_train:
         for j, ax in enumerate(axes.flatten()):
             if (j == 0):
                 hm = sns.heatmap(data[j].reshape(1, latent_dim), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
-                                 cbar_ax=cbar_ax, vmin=-1, vmax=1)
+                                 cbar_ax=cbar_ax, vmin=vmin, vmax=1)
             else:
                 hm = sns.heatmap(data[j].reshape(1, latent_dim), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
-                                 cbar=False, vmin=-1, vmax=1)
+                                 cbar=False, vmin=vmin, vmax=1)
             # ax.set_xticklabels(xlabels)
             ax.set_ylabel(names[j], rotation=45)
             ax.tick_params(axis='x', rotation=0)
@@ -409,14 +395,17 @@ if should_train:
             # ax.set_title(names[i], x=-1.05)
         plt.savefig("latent_vectors/latent_vector" + str(e) + ".png")
         plt.close(None)
-
-        for layer in encoder.layers:
-            layer.trainable = False
-        encoder.trainable = False
+        #
+        # for layer in encoder.layers:
+        #     layer.trainable = False
+        # encoder.trainable = False
+        # autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+        # encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+        #
+        print("Training decoders again")
         autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
         encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
 
-        print("Training decoders again")
         original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
         for cell in cell_types:
             print(cell + " =========================================")
@@ -460,34 +449,53 @@ for cell in cell_types:
     decoded = autoencoder.predict(c_train)
     print(cell + " loss is: " + str(test_loss(decoded, c_train)))
 
+# correct = 0
+# error = 0
+# total = 0
+# for i in range(1000):
+#     test_meta_object = test_meta[i]
+#     closest, closest_profile = get_profile_slow(train_data, train_meta, test_meta_object)
+#     test_profile = np.asarray([test_data[i]])
+#
+#     dmso_train = dmso[train_meta[closest][0] + "_" + train_meta[closest][3]]
+#     dmso_test = dmso[test_meta[i][0] + "_" + test_meta[i][3]]
+#
+#     for j in range(input_size):
+#         total = total + 1
+#         a = dmso_train[0][j][0] < closest_profile[0][j][0]
+#         b = dmso_test[0][j][0] < test_profile[0][j][0]
+#         if a == b:
+#             correct = correct + 1
+#         else:
+#             error = error + 1
+#
+# result_special = correct / (total)
+
 results = {}
 skipped = 0
 img_count = 0
 original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
-test_num = 400 #len(test_data)
+test_num = len(test_data)  # len(test_data)
 for i in range(test_num):
     if i % 100 == 0:
         print(str(i) + " - ", end="", flush=True)
     test_meta_object = test_meta[i]
-    closest, closest_profile = get_profile_slow(train_data, train_meta, test_meta_object)
+    closest, closest_profile = get_profile(train_data, meta_dictionary_pert, test_meta_object)
 
     if closest_profile is None:
         skipped = skipped + 1
         continue
+
     test_profile = np.asarray([test_data[i]])
+
     weights = cell_decoders[test_meta[i][0]]
     autoencoder.get_layer("decoder").set_weights(weights)
     decoded1 = autoencoder.predict(closest_profile)
     results["Our performance is: "] = results.get("Our performance is: ", 0) + test_loss(decoded1, test_profile)
 
-    results["zero vector loss is: "] = results.get("zero vector loss is: ", 0) + test_loss(zeros(decoded1.shape),
-                                                                                           test_profile)
-
-    results["predict DMSO: "] = results.get("predict DMSO: ", 0) + test_loss(dmso[test_meta[i][0] + "_" + test_meta[i][3]], test_profile)
-
-    baseline = calculate_fold_change_profile(dmso[train_meta[closest][0] + "_" + train_meta[closest][3]],
-                                             closest_profile, dmso[test_meta[i][0] + "_" + test_meta[i][3]])
-    results["predict fold change: "] = results.get("predict fold change: ", 0) + test_loss(baseline, test_profile)
+    zero_vector = zeros(decoded1.shape)
+    #zero_vector.fill(0.5)
+    results["zero vector loss is: "] = results.get("zero vector loss is: ", 0) + test_loss(zero_vector, test_profile)
 
     results["closest profile: "] = results.get("closest profile: ", 0) + test_loss(closest_profile, test_profile)
 
@@ -496,10 +504,10 @@ for i in range(test_num):
     results["main autoencoder with test object as input (should be very good): "] = results.get(
         "main autoencoder with test object as input (should be very good): ", 0) + test_loss(decoded3, test_profile)
 
-    if img_count < 25:
+    if img_count < 10:
         img_count = img_count + 1
-        data = [decoded1, dmso[test_meta[i][0] + "_" + test_meta[i][3]], closest_profile, baseline, decoded3]
-        names = ["ground truth", "our method", "dmso", "closest profile", "baseline", "cheating"]
+        data = [decoded1, closest_profile, decoded3]
+        names = ["ground truth", "our method", "closest profile", "cheating"]
         fig, axes = plt.subplots(nrows=len(data) + 1, ncols=1, figsize=(14, 4))
         fig.subplots_adjust(left=None, bottom=None, right=0.85, top=None, wspace=0.4, hspace=1.4)
         cbar_ax = fig.add_axes([0.9, 0.15, 0.05, 0.7])
@@ -507,10 +515,10 @@ for i in range(test_num):
         for j, ax in enumerate(axes.flatten()):
             if (j == 0):
                 hm = sns.heatmap(test_profile.reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
-                                 cbar_ax=cbar_ax, vmin=-1, vmax=1)
+                                 cbar_ax=cbar_ax, vmin=vmin, vmax=1)
             else:
                 hm = sns.heatmap(data[j - 1].reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
-                                 cbar=False, vmin=-1, vmax=1)
+                                 cbar=False, vmin=vmin, vmax=1)
             # ax.set_xticklabels(xlabels)
             ax.set_ylabel(names[j], rotation=45)
             ax.tick_params(axis='x', rotation=0)
@@ -531,3 +539,4 @@ for key, value in results.items():
     print(key + str(value / (test_num - skipped)))
 
 print("skipped " + str(skipped))
+print("Improvement: " + str(results["zero vector loss is: "] / results["Our performance is: "]))
