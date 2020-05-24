@@ -10,7 +10,7 @@ from numpy import zeros
 import sys
 import re
 import math
-
+from scipy import stats
 import pickle
 from pathlib import Path
 import time
@@ -64,7 +64,7 @@ L2_WEIGHT_DECAY = 2e-5
 input_size = 978
 nb_epoch = 10
 batch_size = 128
-latent_dim = 8
+latent_dim = 64
 vmin = -1
 
 
@@ -141,6 +141,8 @@ def parse_data(file):
     df = pd.read_csv(file, sep="\t")
     df.reset_index(drop=True, inplace=True)
     df = df.drop('cid', 1)
+    df = df.drop("distil_id", 1)
+    df = df.groupby("cell_id").filter(lambda x: len(x) > 1000)
     df = df.groupby(['cell_id', 'pert_id', 'pert_idose', 'pert_itime'], as_index=False).median()
     cell_ids = df["cell_id"].values
     pert_ids = df["pert_id"].values
@@ -204,33 +206,14 @@ def get_duration(param):
 def get_profile(data, meta_data, test_pert):
     meta_data = meta_data[test_pert[1]]
     if test_pert[2] == "-666" or test_pert[3] == "-666" or test_pert[2] == -666 or test_pert[3] == -666:
-        return -1, None
+        return -1, None, None
     pert_list = [p[1] for p in meta_data if p[0][2] == test_pert[2] and p[0][3] == test_pert[3]]
     if len(pert_list) > 0:
         random_best = randint(0, len(pert_list) - 1)
-        return pert_list[random_best], np.asarray([data[pert_list[random_best]]])
+        median_profile = np.median(np.asarray(data[pert_list]), axis=0, keepdims=True)
+        return pert_list[random_best], np.asarray([data[pert_list[random_best]]]), median_profile
     else:
-        return -1, None
-
-
-def calculate_fold_change_profile(dmso_train, closest_pert_profile, dmso_test):
-    baseline = zeros(closest_pert_profile.shape)
-    dt = 0.05
-    for i in range(input_size):
-        if dmso_train[0][i][0] < dt:
-            if closest_pert_profile[0][i][0] < dt:
-                baseline[0][i][0] = dmso_test[0][i][0]
-            if closest_pert_profile[0][i][0] > dt:
-                baseline[0][i][0] = closest_pert_profile[0][i][0]
-        elif closest_pert_profile[0][i][0] < dt:
-            if dmso_train[0][i][0] < dt:
-                baseline[0][i][0] = dmso_test[0][i][0]
-            if dmso_train[0][i][0] > dt:
-                baseline[0][i][0] = 0
-        else:
-            baseline[0][i][0] = (closest_pert_profile[0][i][0] / dmso_train[0][i][0]) * dmso_test[0][i][0]
-
-    return baseline
+        return -1, None, None
 
 
 data_folder = "/home/user/data/DeepFake/"
@@ -301,14 +284,14 @@ if should_train:
         if e == nb_epoch - 1:
             sub_epochs = sub_epochs * 2
 
-        # if e < nb_epoch - 1:
-        #     print("Main autoencoder" + " =========================================")
-        #     for layer in encoder.layers:
-        #         layer.trainable = True
-        #     encoder.trainable = True
-        #     autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-        #     encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-        #     autoencoder.fit(train_data, train_data, epochs=sub_epochs, batch_size=batch_size)
+        if e < nb_epoch - 1:
+            print("Main autoencoder" + " =========================================")
+            for layer in encoder.layers:
+                layer.trainable = True
+            encoder.trainable = True
+            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+            encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+            autoencoder.fit(train_data, train_data, epochs=sub_epochs, batch_size=batch_size)
 
         # for layer in encoder.layers:
         #     layer.trainable = False
@@ -335,36 +318,36 @@ if should_train:
 
 
 
-        # print("latent encoder")
-        # latent_epochs = 4
-        # if e == nb_epoch - 1:
-        #     print("no latent training")
-        #     break
-        # if e == nb_epoch - 2:
-        #     latent_epochs = 8
-        # for k in range(latent_epochs):
-        #     print("finding closest perturbations")
-        #     closest_perturbations = []
-        #     closest_indexes = []
-        #     for i in range(len(train_data)):
-        #         if i % 1000 == 0:
-        #             print(str(i) + " - ", end="", flush=True)
-        #             same_pert_time = 0
-        #         closest, profile = get_profile(train_data, meta_dictionary_pert, train_meta[i])
-        #         if closest != -1:
-        #             closest_perturbations.append(train_data[i])
-        #         closest_indexes.append(closest)
-        #     closest_perturbations = np.asarray(closest_perturbations)
-        #
-        #     print("Done")
-        #     latent_vectors = encoder.predict(train_data)
-        #     closest_profile_latent_vectors = []
-        #     for i in range(len(train_data)):
-        #         if closest_indexes[i] != -1:
-        #             closest_profile_latent_vectors.append(latent_vectors[closest_indexes[i]])
-        #     closest_profile_latent_vectors = np.asarray(closest_profile_latent_vectors)
-        #     encoder.fit(closest_perturbations, closest_profile_latent_vectors, epochs=2, batch_size=batch_size)
-        #
+        print("latent encoder")
+        latent_epochs = 4
+        if e == nb_epoch - 1:
+            print("no latent training")
+            break
+        if e == nb_epoch - 2:
+            latent_epochs = 8
+        for k in range(latent_epochs):
+            print("finding closest perturbations")
+            closest_perturbations = []
+            closest_indexes = []
+            for i in range(len(train_data)):
+                if i % 1000 == 0:
+                    print(str(i) + " - ", end="", flush=True)
+                    same_pert_time = 0
+                closest, profile, median_profile = get_profile(train_data, meta_dictionary_pert, train_meta[i])
+                if closest != -1:
+                    closest_perturbations.append(train_data[i])
+                closest_indexes.append(closest)
+            closest_perturbations = np.asarray(closest_perturbations)
+
+            print("Done")
+            latent_vectors = encoder.predict(train_data)
+            closest_profile_latent_vectors = []
+            for i in range(len(train_data)):
+                if closest_indexes[i] != -1:
+                    closest_profile_latent_vectors.append(latent_vectors[closest_indexes[i]])
+            closest_profile_latent_vectors = np.asarray(closest_profile_latent_vectors)
+            encoder.fit(closest_perturbations, closest_profile_latent_vectors, epochs=2, batch_size=batch_size)
+
         latent_vectors = encoder.predict(train_data[:5])
         data = [latent_vectors[0], latent_vectors[1], latent_vectors[2], latent_vectors[3],
                 latent_vectors[4]]
@@ -413,9 +396,9 @@ if should_train:
             input_profiles = []
             output_profiles = []
             for i in range(len(cell_data)):
-                index, profile = get_profile(train_data, meta_dictionary_pert, cell_data[i][1])
-                if profile is not None:
-                    input_profiles.append(profile)
+                index, profile, median_profile = get_profile(train_data, meta_dictionary_pert, cell_data[i][1])
+                if median_profile is not None:
+                    input_profiles.append(median_profile)
                     output_profiles.append(cell_data[i][0])
             if len(input_profiles) == 0:
                 continue
@@ -480,7 +463,7 @@ for i in range(test_num):
     if i % 100 == 0:
         print(str(i) + " - ", end="", flush=True)
     test_meta_object = test_meta[i]
-    closest, closest_profile = get_profile(train_data, meta_dictionary_pert, test_meta_object)
+    closest, closest_profile, median_profile = get_profile(train_data, meta_dictionary_pert, test_meta_object)
 
     if closest_profile is None:
         skipped = skipped + 1
@@ -493,16 +476,29 @@ for i in range(test_num):
     decoded1 = autoencoder.predict(closest_profile)
     results["Our performance is: "] = results.get("Our performance is: ", 0) + test_loss(decoded1, test_profile)
 
+    results["Our correlation is: "] = results.get("Our correlation is: ", 0) + stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
+
+    decoded1 = autoencoder.predict(median_profile)
+    results["Our performance is (median profile): "] = results.get("Our performance is (median profile): ", 0) + test_loss(decoded1, test_profile)
+
+    results["Our correlation is (median profile): "] = results.get("Our correlation is (median profile): ", 0) + stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
+
     zero_vector = zeros(decoded1.shape)
     #zero_vector.fill(0.5)
     results["zero vector loss is: "] = results.get("zero vector loss is: ", 0) + test_loss(zero_vector, test_profile)
 
     results["closest profile: "] = results.get("closest profile: ", 0) + test_loss(closest_profile, test_profile)
+    results["closest profile correlation is: "] = results.get("closest profile correlation is: ", 0) + stats.pearsonr(closest_profile.flatten(), test_profile.flatten())[0]
+
+    results["closest profile (median profile): "] = results.get("closest profile (median profile): ", 0) + test_loss(median_profile, test_profile)
+    results["closest profile correlation is (median profile): "] = results.get("closest profile correlation is (median profile): ", 0) + stats.pearsonr(median_profile.flatten(), test_profile.flatten())[0]
+
 
     autoencoder.get_layer("decoder").set_weights(weights)
     decoded3 = autoencoder.predict(test_profile)
     results["main autoencoder with test object as input (should be very good): "] = results.get(
         "main autoencoder with test object as input (should be very good): ", 0) + test_loss(decoded3, test_profile)
+    results["cheating correlation: "] = results.get("cheating correlation: ", 0) + stats.pearsonr(decoded3.flatten(), test_profile.flatten())[0]
 
     if img_count < 10:
         img_count = img_count + 1
