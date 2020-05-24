@@ -432,28 +432,6 @@ for cell in cell_types:
     decoded = autoencoder.predict(c_train)
     print(cell + " loss is: " + str(test_loss(decoded, c_train)))
 
-# correct = 0
-# error = 0
-# total = 0
-# for i in range(1000):
-#     test_meta_object = test_meta[i]
-#     closest, closest_profile = get_profile_slow(train_data, train_meta, test_meta_object)
-#     test_profile = np.asarray([test_data[i]])
-#
-#     dmso_train = dmso[train_meta[closest][0] + "_" + train_meta[closest][3]]
-#     dmso_test = dmso[test_meta[i][0] + "_" + test_meta[i][3]]
-#
-#     for j in range(input_size):
-#         total = total + 1
-#         a = dmso_train[0][j][0] < closest_profile[0][j][0]
-#         b = dmso_test[0][j][0] < test_profile[0][j][0]
-#         if a == b:
-#             correct = correct + 1
-#         else:
-#             error = error + 1
-#
-# result_special = correct / (total)
-
 results = {}
 skipped = 0
 img_count = 0
