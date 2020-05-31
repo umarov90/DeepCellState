@@ -65,7 +65,7 @@ L2_WEIGHT_DECAY = 2e-5
 input_size = 978
 nb_epoch = 1
 batch_size = 128
-latent_dim = 128
+latent_dim = 64
 vmin = -1
 
 def correlation_coefficient_loss(y_true, y_pred):
