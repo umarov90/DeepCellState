@@ -1,4 +1,5 @@
 import os
+import shutil
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
@@ -62,9 +63,9 @@ BATCH_NORM_DECAY = 0.997
 BATCH_NORM_EPSILON = 1e-5
 L2_WEIGHT_DECAY = 2e-5
 input_size = 978
-nb_epoch = 5
+nb_epoch = 1
 batch_size = 128
-latent_dim = 64
+latent_dim = 128
 vmin = -1
 
 def correlation_coefficient_loss(y_true, y_pred):
@@ -232,6 +233,9 @@ def get_profile(data, meta_data, test_pert):
 
 data_folder = "/home/user/data/DeepFake/"
 os.chdir(data_folder)
+shutil.rmtree('models')
+os.makedirs('models')
+
 # data
 if Path("arrays/train_data").is_file():
     print("Loading existing data")
@@ -299,7 +303,9 @@ if should_train:
 
         if e == 0:
             print("Main autoencoder" + " =========================================")
-            autoencoder.fit(train_data, train_data, epochs=sub_epochs, batch_size=batch_size)
+            callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+            autoencoder.fit(train_data, train_data, epochs=sub_epochs, batch_size=batch_size,
+                            validation_split=0.1, callbacks=[callback])
             for cell in cell_types:
                 decoder = autoencoder.get_layer("decoder")
                 cell_decoders[cell] = decoder.get_weights().copy()
@@ -313,15 +319,15 @@ if should_train:
             autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
             encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
 
-        original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
-        for cell in cell_types:
-            print(cell + " =========================================")
-            c_train = np.asarray(data_dictionary_cell[cell])
-            autoencoder.get_layer("decoder").set_weights(cell_decoders[cell])
-            autoencoder.fit(c_train, c_train, epochs=sub_epochs, batch_size=batch_size)
-            cell_decoders[cell] = autoencoder.get_layer("decoder").get_weights()
-            gc.collect()
-        autoencoder.get_layer("decoder").set_weights(original_main_decoder_weights)
+        # original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
+        # for cell in cell_types:
+        #     print(cell + " =========================================")
+        #     c_train = np.asarray(data_dictionary_cell[cell])
+        #     autoencoder.get_layer("decoder").set_weights(cell_decoders[cell])
+        #     autoencoder.fit(c_train, c_train, epochs=sub_epochs, batch_size=batch_size)
+        #     cell_decoders[cell] = autoencoder.get_layer("decoder").get_weights()
+        #     gc.collect()
+        # autoencoder.get_layer("decoder").set_weights(original_main_decoder_weights)
 
         latent_vectors = encoder.predict(train_data[:5])
         data = [latent_vectors[0], latent_vectors[1], latent_vectors[2], latent_vectors[3],
@@ -372,9 +378,9 @@ if should_train:
             output_profiles = np.asarray(output_profiles)
             autoencoder.get_layer("decoder").set_weights(cell_decoders[cell])
             if e == nb_epoch - 1:
-                callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+                callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
                 autoencoder.fit(input_profiles, output_profiles, epochs=40, batch_size=batch_size,
-                                validation_split=0.2, callbacks=[callback])
+                                validation_split=0.1, callbacks=[callback])
             else:
                 autoencoder.fit(input_profiles, output_profiles, epochs=sub_epochs, batch_size=batch_size)
 
