@@ -371,12 +371,13 @@ if should_train:
             input_profiles = np.squeeze(np.asarray(input_profiles), axis=1)
             output_profiles = np.asarray(output_profiles)
             autoencoder.get_layer("decoder").set_weights(cell_decoders[cell])
-            #if e == nb_epoch - 1:
-            #   callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
-            #   autoencoder.fit(input_profiles, output_profiles, epochs=40, batch_size=batch_size,
-            #                   validation_split=0.2, callbacks=[callback])
-            #else:
-            autoencoder.fit(input_profiles, output_profiles, epochs=sub_epochs, batch_size=batch_size)
+            if e == nb_epoch - 1:
+                callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+                autoencoder.fit(input_profiles, output_profiles, epochs=40, batch_size=batch_size,
+                                validation_split=0.2, callbacks=[callback])
+            else:
+                autoencoder.fit(input_profiles, output_profiles, epochs=sub_epochs, batch_size=batch_size)
+
             cell_decoders[cell] = autoencoder.get_layer("decoder").get_weights()
             gc.collect()
         autoencoder.get_layer("decoder").set_weights(original_main_decoder_weights)
