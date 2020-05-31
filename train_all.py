@@ -1,7 +1,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import numpy as np
@@ -52,7 +52,7 @@ tf.compat.v1.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
 config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
-# config2 = tf.config.experimental.set_memory_growth(physical_devices[1], True)
+config2 = tf.config.experimental.set_memory_growth(physical_devices[1], True)
 
 tf.random.set_seed(0)
 np.random.seed(0)
@@ -62,11 +62,23 @@ BATCH_NORM_DECAY = 0.997
 BATCH_NORM_EPSILON = 1e-5
 L2_WEIGHT_DECAY = 2e-5
 input_size = 978
-nb_epoch = 10
+nb_epoch = 5
 batch_size = 128
 latent_dim = 64
 vmin = -1
 
+def correlation_coefficient_loss(y_true, y_pred):
+    x = y_true
+    y = y_pred
+    mx = K.mean(x)
+    my = K.mean(y)
+    xm, ym = x-mx, y-my
+    r_num = K.sum(tf.multiply(xm,ym))
+    r_den = K.sqrt(tf.multiply(K.sum(K.square(xm)), K.sum(K.square(ym))))
+    r = r_num / r_den
+
+    r = K.maximum(K.minimum(r, 1.0), -1.0)
+    return 1 - K.square(r)
 
 def build(input_size, channels, latent_dim, filters=(64, 128), encoder=None):
     if encoder is None:
@@ -140,8 +152,8 @@ def test_loss(prediction, ground_truth):
 def parse_data(file):
     df = pd.read_csv(file, sep="\t")
     df.reset_index(drop=True, inplace=True)
-    df = df.drop('cid', 1)
-    df = df.drop("distil_id", 1)
+    #df = df.drop('Unnamed: 0', 1)
+    #df = df.drop("distil_id", 1)
     df = df.groupby("cell_id").filter(lambda x: len(x) > 1000)
     df = df.groupby(['cell_id', 'pert_id', 'pert_idose', 'pert_itime'], as_index=False).median()
     cell_ids = df["cell_id"].values
@@ -166,6 +178,8 @@ def split_data(data, meta):
         if meta[i][1] == "DMSO":
             indexes.append(i)
             dmso.setdefault(meta[i][0], []).append(data[i])  # np.std(data[i])
+        if meta[i][1] == "EMPTY_VECTOR":
+            indexes.append(i)
 
     data = np.delete(data, indexes, axis=0)
     meta = np.delete(meta, indexes, axis=0)
@@ -210,7 +224,7 @@ def get_profile(data, meta_data, test_pert):
     pert_list = [p[1] for p in meta_data if p[0][2] == test_pert[2] and p[0][3] == test_pert[3]]
     if len(pert_list) > 0:
         random_best = randint(0, len(pert_list) - 1)
-        median_profile = np.median(np.asarray(data[pert_list]), axis=0, keepdims=True)
+        median_profile = np.mean(np.asarray(data[pert_list]), axis=0, keepdims=True)
         return pert_list[random_best], np.asarray([data[pert_list[random_best]]]), median_profile
     else:
         return -1, None, None
@@ -231,7 +245,7 @@ if Path("arrays/train_data").is_file():
     data_dictionary_cell = pickle.load(open("arrays/data_dictionary_cell", "rb"))
 else:
     print("Parsing data")
-    data, meta, all_pert_ids = parse_data("cell_data.tsv")
+    data, meta, all_pert_ids = parse_data("lincs_trt_cp_phase_2.tsv")
     train_data, test_data, train_meta, test_meta, cell_types, dmso = split_data(data, meta)
     meta_dictionary_pert = {}
     for pert_id in all_pert_ids:
@@ -255,21 +269,15 @@ print("----------------------------------------------")
 cell_decoders = {}
 if os.path.isdir("./models/main_model"):
     print("Loading model")
-    autoencoder = keras.models.load_model("./models/main_model")
+    autoencoder = keras.models.load_model("./models/main_model", custom_objects={'correlation_coefficient_loss': correlation_coefficient_loss})
     for cell in cell_types:
         cell_decoders[cell] = pickle.load(open("./models/" + cell + "_decoder_weights", "rb"))
 else:
     print("Building autoencoder ")
     autoencoder = build(input_size, 1, latent_dim)
-    decoder = autoencoder.get_layer("decoder")
     autoencoder.save("./models/main_model")
-    for cell in cell_types:
-        cell_decoders[cell] = decoder.get_weights().copy()
-        pickle.dump(cell_decoders[cell], open("./models/" + cell + "_decoder_weights", "wb"))
-    del decoder
 
 should_train = True
-
 if should_train:
     del autoencoder
     gc.collect()
@@ -277,34 +285,33 @@ if should_train:
     tf.compat.v1.reset_default_graph()
     for e in range(nb_epoch):
         print("Total epoch " + str(e) + " ------------------------------------------------------")
-        autoencoder = keras.models.load_model("./models/main_model")
+        autoencoder = keras.models.load_model("./models/main_model", custom_objects={'correlation_coefficient_loss': correlation_coefficient_loss})
         encoder = autoencoder.get_layer("encoder")
-
-        sub_epochs = 4
-        if e == nb_epoch - 1:
-            sub_epochs = sub_epochs * 2
-
-        if e < nb_epoch - 1:
-            print("Main autoencoder" + " =========================================")
-            for layer in encoder.layers:
-                layer.trainable = True
-            encoder.trainable = True
-            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-            encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-            autoencoder.fit(train_data, train_data, epochs=sub_epochs, batch_size=batch_size)
-
-        # for layer in encoder.layers:
-        #     layer.trainable = False
-        # encoder.trainable = False
-        # autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-        # encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-
         for layer in encoder.layers:
             layer.trainable = True
         encoder.trainable = True
-        autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-5))
-        encoder.compile(loss="mse", optimizer=Adam(lr=1e-5))
+        autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+        encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
 
+        sub_epochs = 2
+        if e == nb_epoch - 1:
+            sub_epochs = 4
+
+        if e == 0:
+            print("Main autoencoder" + " =========================================")
+            autoencoder.fit(train_data, train_data, epochs=sub_epochs, batch_size=batch_size)
+            for cell in cell_types:
+                decoder = autoencoder.get_layer("decoder")
+                cell_decoders[cell] = decoder.get_weights().copy()
+                pickle.dump(cell_decoders[cell], open("./models/" + cell + "_decoder_weights", "wb"))
+                del decoder
+
+        if e == nb_epoch - 1:
+            for layer in encoder.layers:
+                layer.trainable = False
+            encoder.trainable = False
+            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+            encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
 
         original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
         for cell in cell_types:
@@ -315,38 +322,6 @@ if should_train:
             cell_decoders[cell] = autoencoder.get_layer("decoder").get_weights()
             gc.collect()
         autoencoder.get_layer("decoder").set_weights(original_main_decoder_weights)
-
-
-
-        print("latent encoder")
-        latent_epochs = 4
-        if e == nb_epoch - 1:
-            print("no latent training")
-            break
-        if e == nb_epoch - 2:
-            latent_epochs = 8
-        for k in range(latent_epochs):
-            print("finding closest perturbations")
-            closest_perturbations = []
-            closest_indexes = []
-            for i in range(len(train_data)):
-                if i % 1000 == 0:
-                    print(str(i) + " - ", end="", flush=True)
-                    same_pert_time = 0
-                closest, profile, median_profile = get_profile(train_data, meta_dictionary_pert, train_meta[i])
-                if closest != -1:
-                    closest_perturbations.append(train_data[i])
-                closest_indexes.append(closest)
-            closest_perturbations = np.asarray(closest_perturbations)
-
-            print("Done")
-            latent_vectors = encoder.predict(train_data)
-            closest_profile_latent_vectors = []
-            for i in range(len(train_data)):
-                if closest_indexes[i] != -1:
-                    closest_profile_latent_vectors.append(latent_vectors[closest_indexes[i]])
-            closest_profile_latent_vectors = np.asarray(closest_profile_latent_vectors)
-            encoder.fit(closest_perturbations, closest_profile_latent_vectors, epochs=2, batch_size=batch_size)
 
         latent_vectors = encoder.predict(train_data[:5])
         data = [latent_vectors[0], latent_vectors[1], latent_vectors[2], latent_vectors[3],
@@ -378,17 +353,8 @@ if should_train:
             # ax.set_title(names[i], x=-1.05)
         plt.savefig("latent_vectors/latent_vector" + str(e) + ".png")
         plt.close(None)
-        #
-        # for layer in encoder.layers:
-        #     layer.trainable = False
-        # encoder.trainable = False
-        # autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-        # encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-        #
-        print("Training decoders again")
-        autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-        encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
 
+        print("Training decoders again")
         original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
         for cell in cell_types:
             print(cell + " =========================================")
@@ -405,6 +371,11 @@ if should_train:
             input_profiles = np.squeeze(np.asarray(input_profiles), axis=1)
             output_profiles = np.asarray(output_profiles)
             autoencoder.get_layer("decoder").set_weights(cell_decoders[cell])
+            #if e == nb_epoch - 1:
+            #   callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
+            #   autoencoder.fit(input_profiles, output_profiles, epochs=40, batch_size=batch_size,
+            #                   validation_split=0.2, callbacks=[callback])
+            #else:
             autoencoder.fit(input_profiles, output_profiles, epochs=sub_epochs, batch_size=batch_size)
             cell_decoders[cell] = autoencoder.get_layer("decoder").get_weights()
             gc.collect()
@@ -419,7 +390,7 @@ if should_train:
         tf.compat.v1.reset_default_graph()
         print("---------------------------------------------------------------\n")
 
-    autoencoder = keras.models.load_model("./models/main_model")
+    autoencoder = keras.models.load_model("./models/main_model", custom_objects={'correlation_coefficient_loss': correlation_coefficient_loss})
     encoder = autoencoder.get_layer("encoder")
     autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
     encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
@@ -459,7 +430,7 @@ for i in range(test_num):
     decoded1 = autoencoder.predict(median_profile)
     results["Our performance is (median profile): "] = results.get("Our performance is (median profile): ", 0) + test_loss(decoded1, test_profile)
 
-    results["Our correlation is (median profile): "] = results.get("Our correlation is (median profile): ", 0) + stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
+    results["Our correlation: "] = results.get("Our correlation: ", 0) + stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
 
     zero_vector = zeros(decoded1.shape)
     #zero_vector.fill(0.5)
@@ -469,7 +440,7 @@ for i in range(test_num):
     results["closest profile correlation is: "] = results.get("closest profile correlation is: ", 0) + stats.pearsonr(closest_profile.flatten(), test_profile.flatten())[0]
 
     results["closest profile (median profile): "] = results.get("closest profile (median profile): ", 0) + test_loss(median_profile, test_profile)
-    results["closest profile correlation is (median profile): "] = results.get("closest profile correlation is (median profile): ", 0) + stats.pearsonr(median_profile.flatten(), test_profile.flatten())[0]
+    results["Baseline correlation: "] = results.get("Baseline correlation: ", 0) + stats.pearsonr(median_profile.flatten(), test_profile.flatten())[0]
 
 
     autoencoder.get_layer("decoder").set_weights(weights)

@@ -31,59 +31,59 @@ import os
 data_folder = "/home/user/data/DeepFake/"
 os.chdir(data_folder)
 
-gctx_file = "GSE92742_Broad_LINCS_Level5_COMPZ.MODZ_n473647x12328.gctx"
-
 sig_info = pd.read_csv("GSE92742_Broad_LINCS_sig_info.txt", sep="\t")
 gene_info = pd.read_csv("GSE92742_Broad_LINCS_gene_info.txt", sep="\t", dtype=str)
 landmark_gene_row_ids = gene_info["pr_gene_id"][gene_info["pr_is_lm"] == "1"]
-sig_info.set_index("sig_id", inplace=True)
-
-gctoo = pg.parse(gctx_file, cid=sig_info.index.tolist(), rid=landmark_gene_row_ids)
-gctoo.col_metadata_df = sig_info.copy()
-
-# vorinostat_sig_id_info =  sig_info[sig_info["pert_iname"] == "vorinostat"]
-# vorinostat_sig_id_info[0:5]
-# vorinostat_sig_id_info.set_index("sig_id", inplace=True)
-# vorinostat_sig_id_info.index
-
-#.set_index("sig_id", inplace=True)
-#df.col_metadata_df = sig_info
-
-# .value_counts()[:10].index.tolist()
-
-#a375_ids = df.col_metadata_df.index[df.col_metadata_df["cell_id"] == "A375"].tolist()
-#mcf7_ids = df.col_metadata_df.index[df.col_metadata_df["cell_id"] == "MCF7"].tolist()
-
-#a375_gctoo = sg.subset_gctoo(df, cid=a375_ids)
-#mcf7_gctoo = sg.subset_gctoo(df, cid=mcf7_ids)
-
-#a375_pert_ids = df.col_metadata_df.index[df.col_metadata_df["cell_id"] == "A375"].tolist()
-#meta_data = df.col_metadata_df.tolist()
-
-#vorinostat_sig_info = sig_info[(sig_info["pert_iname"] == "vorinostat") & (sig_info["pert_idose"] == "10 µM") & (sig_info["pert_itime"] == "24 h")]
-# set sig_id as index
-#vorinostat_sig_info.set_index("sig_id", inplace=True)
-#vorinostat_gctoo = sg.subset_gctoo(df, cid=vorinostat_sig_info.index.tolist())
-# annotate with its corresponding sample annotations
-#vorinostat_gctoo.col_metadata_df = vorinostat_sig_info.copy()
-
-df_data = gctoo.data_df
-#df2 = mcf7_gctoo.data_df
-
-#df1 = df1.drop('rid', 1)
-#df2 = df2.drop('rid', 1)
-
-df_data = df_data.transpose()
-#df2 = df2.transpose()
-
-df_data["cell_id"] = gctoo.col_metadata_df["cell_id"]
-df_data["pert_id"] = gctoo.col_metadata_df["pert_id"]
-df_data["pert_idose"] = gctoo.col_metadata_df["pert_idose"]
-df_data["pert_itime"] = gctoo.col_metadata_df["pert_itime"]
-df_data["distil_id"] = gctoo.col_metadata_df["distil_id"]
+#sig_info.set_index("sig_id", inplace=True)
+sub_sig_info = sig_info[sig_info["pert_type"] == "trt_cp"]
+#sub_sig_info = sig_info[(sig_info["pert_type"] == "trt_oe") | (sig_info["pert_type"] == "trt_oe.mut") |
+#                        (sig_info["pert_type"] == "trt_sh") | (sig_info["pert_type"] == "trt_sh.cgs") |
+#                        (sig_info["pert_type"] == "trt_cp") | (sig_info["pert_type"] == "trt_lig")]
+#sub_sig_info = sig_info.copy()
+sub_sig_info.set_index("sig_id", inplace=True)
 
 
-df_data.to_csv("cell_data.tsv", sep='\t')
+gctoo = pg.parse("GSE92742_Broad_LINCS_Level5_COMPZ.MODZ_n473647x12328.gctx", cid=sub_sig_info.index.tolist(), rid=landmark_gene_row_ids)
+gctoo.col_metadata_df = sub_sig_info.copy()
 
-# print("A375 " + str(a375_gctoo.data_df.shape))
-# print("MCF7 " + str(mcf7_gctoo.data_df.shape))
+df_data_1 = gctoo.data_df
+df_data_1 = df_data_1.transpose()
+
+df_data_1["cell_id"] = gctoo.col_metadata_df["cell_id"]
+df_data_1["pert_id"] = gctoo.col_metadata_df["pert_id"]
+df_data_1["pert_idose"] = gctoo.col_metadata_df["pert_idose"]
+df_data_1["pert_itime"] = gctoo.col_metadata_df["pert_itime"]
+
+#df_data_1.to_csv("cell_data_trt_sh.tsv", sep='\t')
+print(df_data_1.shape)
+
+# phase 2
+sig_info = pd.read_csv("GSE70138_Broad_LINCS_sig_info_2017-03-06.txt", sep="\t")
+gene_info = pd.read_csv("GSE92742_Broad_LINCS_gene_info.txt", sep="\t", dtype=str)
+landmark_gene_row_ids = gene_info["pr_gene_id"][gene_info["pr_is_lm"] == "1"]
+#sig_info.set_index("sig_id", inplace=True)
+#sub_sig_info = sig_info[(sig_info["pert_type"] == "trt_oe") | (sig_info["pert_type"] == "trt_oe.mut") |
+#                        (sig_info["pert_type"] == "trt_sh") | (sig_info["pert_type"] == "trt_sh.cgs") |
+#                        (sig_info["pert_type"] == "trt_cp") | (sig_info["pert_type"] == "trt_lig")]
+sub_sig_info = sig_info[sig_info["pert_type"] == "trt_cp"]
+#sub_sig_info = sig_info.copy()
+sub_sig_info.set_index("sig_id", inplace=True)
+
+
+gctoo = pg.parse("GSE70138_Broad_LINCS_Level5_COMPZ_n118050x12328_2017-03-06.gctx", cid=sub_sig_info.index.tolist(), rid=landmark_gene_row_ids)
+gctoo.col_metadata_df = sub_sig_info.copy()
+
+df_data_2 = gctoo.data_df
+df_data_2 = df_data_2.transpose()
+
+df_data_2["cell_id"] = gctoo.col_metadata_df["cell_id"]
+df_data_2["pert_id"] = gctoo.col_metadata_df["pert_id"]
+df_data_2["pert_idose"] = gctoo.col_metadata_df["pert_idose"]
+df_data_2["pert_itime"] = gctoo.col_metadata_df["pert_itime"]
+
+
+print(df_data_2.shape)
+
+#df_data_3 = pd.concat([df_data_1,df_data_2]).drop_duplicates().reset_index(drop=True)
+#print(df_data_3.shape)
+df_data_1.to_csv("lincs_trt_cp_phase_1.tsv", sep='\t')
