@@ -27,6 +27,7 @@ import cmapPy.pandasGEXpress.parse_gctx as pg
 import cmapPy.pandasGEXpress.subset_gctoo as sg
 import pandas as pd
 import os
+import numpy as np
 
 data_folder = "/home/user/data/DeepFake/"
 os.chdir(data_folder)
@@ -34,10 +35,12 @@ os.chdir(data_folder)
 gctx_file = "GSE92742_Broad_LINCS_Level5_COMPZ.MODZ_n473647x12328.gctx"
 
 sig_info = pd.read_csv("GSE92742_Broad_LINCS_sig_info.txt", sep="\t")
+sig_info7 = pd.read_csv("GSE70138_Broad_LINCS_sig_info_2017-03-06.txt", sep="\t")
 gene_info = pd.read_csv("GSE92742_Broad_LINCS_gene_info.txt", sep="\t", dtype=str)
 landmark_gene_row_ids = gene_info["pr_gene_id"][gene_info["pr_is_lm"] == "1"]
 
-sig_info.cell_id.value_counts().to_csv("counts_cell.tsv", sep='\t')
+
+overlap = np.intersect1d(sig_info.pert_id.unique(), sig_info7.pert_id.unique())
 pert = "KRAS"
 dose = "2 µL"
 time = "96 h"
