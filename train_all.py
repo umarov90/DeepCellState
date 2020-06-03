@@ -16,6 +16,7 @@ import pickle
 from pathlib import Path
 import time
 from random import randint
+import random
 from random import uniform
 from random import shuffle
 from tensorflow.python.keras import initializers
@@ -63,7 +64,7 @@ BATCH_NORM_DECAY = 0.997
 BATCH_NORM_EPSILON = 1e-5
 L2_WEIGHT_DECAY = 2e-5
 input_size = 978
-nb_epoch = 3
+nb_epoch = 50
 batch_size = 128
 latent_dim = 64
 vmin = -1
@@ -83,7 +84,7 @@ def correlation_coefficient_loss(y_true, y_pred):
     return 1 - K.square(r)
 
 
-def build(input_size, channels, latent_dim, filters=(32, 64, 128), encoder=None):
+def build(input_size, channels, latent_dim, filters=(64, 128), encoder=None):
     if encoder is None:
         input_shape = (input_size, channels)
         # define the input to the encoder
@@ -159,9 +160,11 @@ def test_loss(prediction, ground_truth):
 def parse_data(file):
     df = pd.read_csv(file, sep="\t")
     df.reset_index(drop=True, inplace=True)
-    df = df.drop('Unnamed: 0', 1)
+    #df = df.drop('Unnamed: 0', 1)
     # df = df.drop("distil_id", 1)
-    df = df.groupby("cell_id").filter(lambda x: len(x) > 1000)
+    print(df.shape)
+    #df = df.groupby("pert_id").filter(lambda x: len(x) > 100)
+    #df = df.groupby("cell_id").filter(lambda x: len(x) > 1000)
     print(df.shape)
     df = df.groupby(['cell_id', 'pert_id', 'pert_idose', 'pert_itime'], as_index=False).mean()
     print(df.shape)
@@ -194,14 +197,14 @@ def split_data(data, meta):
     meta = np.delete(meta, indexes, axis=0)
 
     for k in dmso.keys():
-        dmso[k] = np.median(np.asarray(dmso[k]), axis=0, keepdims=True)
+        dmso[k] = np.mean(np.asarray(dmso[k]), axis=0, keepdims=True)
 
     for cell in cell_types:
         if cell not in dmso.keys():
-            dmso[cell] = np.median([data[i] for i, m in enumerate(meta) if m[0] == cell], axis=0, keepdims=True)
+            dmso[cell] = np.mean([data[i] for i, m in enumerate(meta) if m[0] == cell], axis=0, keepdims=True)
 
-    for i in range(len(data)):
-        data[i] = data[i] - dmso[meta[i][0]]
+    #for i in range(len(data)):
+    #    data[i] = data[i] - dmso[meta[i][0]]
 
     rng_state = np.random.get_state()
     np.random.shuffle(data)
@@ -258,7 +261,7 @@ if Path("arrays/train_data").is_file():
     all_pert_ids = pickle.load(open("arrays/all_pert_ids", "rb"))
 else:
     print("Parsing data")
-    data, meta, all_pert_ids = parse_data("lincs_trt_cp_phase_1_2.tsv")
+    data, meta, all_pert_ids = parse_data("lincs_trt_cp_phase_2.tsv")
     train_data, test_data, train_meta, test_meta, cell_types, dmso = split_data(data, meta)
     meta_dictionary_pert = {}
     for pert_id in all_pert_ids:
@@ -327,8 +330,8 @@ if should_train:
             for layer in encoder.layers:
                 layer.trainable = True
             encoder.trainable = True
-            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-5))
-            encoder.compile(loss="mse", optimizer=Adam(lr=1e-5))
+            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-7))
+            encoder.compile(loss="mse", optimizer=Adam(lr=1e-7))
 
         # original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
         # for cell in cell_types:
@@ -398,11 +401,13 @@ if should_train:
             for layer in encoder.layers:
                 layer.trainable = False
             encoder.trainable = False
-            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-2))
-            encoder.compile(loss="mse", optimizer=Adam(lr=1e-2))
+            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-6))
+            encoder.compile(loss="mse", optimizer=Adam(lr=1e-6))
 
         original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
-        for cell in cell_types:
+        cl = list(cell_types)
+        random.shuffle(cl)
+        for cell in cl:
             print(cell + " =========================================")
             cell_data = np.asarray([[train_data[i], train_meta[i]] for i, p in enumerate(train_meta) if p[0] == cell])
             input_profiles = []
@@ -419,10 +424,10 @@ if should_train:
             autoencoder.get_layer("decoder").set_weights(cell_decoders[cell])
             if e == nb_epoch - 1:
                 callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-                autoencoder.fit(input_profiles, output_profiles, epochs=40, batch_size=batch_size,
+                autoencoder.fit(input_profiles, output_profiles, epochs=100, batch_size=batch_size,
                                 validation_split=0.1, callbacks=[callback])
             else:
-                autoencoder.fit(input_profiles, output_profiles, epochs=2, batch_size=batch_size)
+                autoencoder.fit(input_profiles, output_profiles, epochs=1, batch_size=batch_size)
 
             cell_decoders[cell] = autoencoder.get_layer("decoder").get_weights()
             gc.collect()

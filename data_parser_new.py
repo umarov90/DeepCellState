@@ -86,8 +86,11 @@ df_data_2["pert_idose"] = gctoo.col_metadata_df["pert_idose"]
 df_data_2["pert_itime"] = gctoo.col_metadata_df["pert_itime"]
 
 
-print(df_data_2.shape)
-
 df_data_3 = pd.concat([df_data_1,df_data_2]).drop_duplicates().reset_index(drop=True)
+print(df_data_2.shape)
 print(df_data_3.shape)
-df_data_3.to_csv("lincs_trt_cp_phase_1_2.tsv", sep='\t')
+#df_data_3 = df_data_3.drop(df_data_3[df_data_3.cell_id.isin(["NEU", "MCF10A", "SKBR3", "PC3", "VCAP", "YAPC", "SKL.C"])].index.tolist())
+print(df_data_3.shape)
+
+
+df_data_2.to_csv("lincs_trt_cp_phase_2.tsv", sep='\t')
