@@ -2,7 +2,7 @@ import os
 import shutil
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import numpy as np
@@ -43,7 +43,6 @@ from tensorflow.python.keras import backend as K
 from tensorflow import keras
 import numpy as np
 import matplotlib
-from sklearn.metrics import r2_score
 
 matplotlib.use("Agg")
 from tensorflow.python.keras.optimizers import Adam
@@ -91,13 +90,14 @@ def build(input_size, channels, latent_dim, filters=(64, 128), encoder=None):
         # define the input to the encoder
         inputs = Input(shape=input_shape)
         x = inputs
+        x = BatchNormalization()(x)
         # loop over the number of filters
         for f in filters:
             # apply a CONV => RELU => BN operation
             x = Conv1D(f, 3, strides=1, padding="same", use_bias=True)(x)  #
             x = LeakyReLU(alpha=0.2)(x)
             # x = Activation('tanh')(x)
-            # x = BatchNormalization()(x)
+            x = BatchNormalization()(x)
         # flatten the network and then construct our latent vector
         volume_size = K.int_shape(x)
         x = Flatten()(x)
@@ -128,7 +128,7 @@ def build(input_size, channels, latent_dim, filters=(64, 128), encoder=None):
             x)  # kernel_regularizer=regularizers.l2(L2_WEIGHT_DECAY
         x = LeakyReLU(alpha=0.2)(x)
         # x = Activation('tanh')(x)
-        # x = BatchNormalization()(x)
+        x = BatchNormalization()(x)
 
     # apply a single CONV_TRANSPOSE layer used to recover the
     # original depth of the image
@@ -161,7 +161,10 @@ def test_loss(prediction, ground_truth):
 def parse_data(file):
     df = pd.read_csv(file, sep="\t")
     df.reset_index(drop=True, inplace=True)
-    #df = df.drop('Unnamed: 0', 1)
+    try:
+        df = df.drop('Unnamed: 0', 1)
+    except Exception as e:
+        pass
     # df = df.drop("distil_id", 1)
     print(df.shape)
     #df = df.groupby("pert_id").filter(lambda x: len(x) > 100)
@@ -177,47 +180,34 @@ def parse_data(file):
     perts = np.stack([cell_ids, pert_ids, pert_idose, pert_itime]).transpose()
     df = df.drop(['cell_id', 'pert_id', 'pert_idose', 'pert_itime'], 1)
     data = df.values
-    data = data / np.max(data)
+    data = data / max(np.max(data), abs(np.min(data)))
+    # for pert_id in all_pert_ids:
+    #     data_p = [data[i] for i, p in enumerate(perts) if p[1] == pert_id]
+    #     data_i = [i for i, p in enumerate(perts) if p[1] == pert_id]
+    #     max_p = np.max(data_p)
+    #     min_p = np.min(data_p)
+    #     data[data_i] = data[data_i] / max(max_p, abs(min_p))
+    #     print(max(max_p, abs(min_p)))
     # data = (data - np.min(data)) / (np.max(data) - np.min(data))
     data = np.expand_dims(data, axis=-1)
     return data, perts, all_pert_ids
 
 
-def split_data(data, meta):
+def split_data(data, meta, all_pert_ids):
     cell_types = set([meta[i][0] for i, x in enumerate(meta)])
-    indexes = []
-    dmso = {}
-    for i, x in enumerate(meta):
-        if meta[i][1] == "DMSO":
-            indexes.append(i)
-            dmso.setdefault(meta[i][0], []).append(data[i])  # np.std(data[i])
-        if meta[i][1] == "EMPTY_VECTOR":
-            indexes.append(i)
-
-    data = np.delete(data, indexes, axis=0)
-    meta = np.delete(meta, indexes, axis=0)
-
-    for k in dmso.keys():
-        dmso[k] = np.mean(np.asarray(dmso[k]), axis=0, keepdims=True)
-
-    for cell in cell_types:
-        if cell not in dmso.keys():
-            dmso[cell] = np.mean([data[i] for i, m in enumerate(meta) if m[0] == cell], axis=0, keepdims=True)
-
-    #for i in range(len(data)):
-    #    data[i] = data[i] - dmso[meta[i][0]]
-
     rng_state = np.random.get_state()
     np.random.shuffle(data)
     np.random.set_state(rng_state)
     np.random.shuffle(meta)
-    split = int(0.9 * len(data))
-    train_data = data[:split]
-    test_data = data[split:]
-    train_meta = meta[:split]
-    test_meta = meta[split:]
-
-    return train_data, test_data, train_meta, test_meta, cell_types, dmso
+    split = int(0.9 * len(all_pert_ids))
+    all_pert_ids_list = list(all_pert_ids)
+    train_perts = all_pert_ids_list[:split]
+    test_perts = all_pert_ids_list[split:]
+    train_data = np.asarray([data[i] for i, m in enumerate(meta) if m[1] in train_perts])
+    test_data = np.asarray([data[i] for i, m in enumerate(meta) if m[1] in test_perts])
+    train_meta = np.asarray([m for i, m in enumerate(meta) if m[1] in train_perts])
+    test_meta = np.asarray([m for i, m in enumerate(meta) if m[1] in test_perts])
+    return train_data, test_data, train_meta, test_meta, cell_types, train_perts, test_perts
 
 
 def get_duration(param):
@@ -234,7 +224,7 @@ def get_profile(data, meta_data, test_pert):
     meta_data = meta_data[test_pert[1]]
     if test_pert[2] == "-666" or test_pert[3] == "-666" or test_pert[2] == -666 or test_pert[3] == -666:
         return -1, None, None
-    pert_list = [p[1] for p in meta_data if p[0][2] == test_pert[2] and p[0][3] == test_pert[3]]
+    pert_list = [p[1] for p in meta_data if p[0][2] == test_pert[2] and p[0][3] == test_pert[3] and p[0][0] != test_pert[0]]
     if len(pert_list) > 0:
         random_best = randint(0, len(pert_list) - 1)
         median_profile = np.mean(np.asarray(data[pert_list]), axis=0, keepdims=True)
@@ -245,58 +235,82 @@ def get_profile(data, meta_data, test_pert):
 
 data_folder = "/home/user/data/DeepFake/"
 os.chdir(data_folder)
-shutil.rmtree('models')
-os.makedirs('models')
+sub = "sub2/"
+#shutil.rmtree('models')
+#os.makedirs('models')
+
+# data_sh, meta_sh, all_pert_ids_sh = parse_data("lincs_trt_cp_phase_1.tsv")
+# meta_dictionary_pert_test_sh = {}
+# for pert_id in all_pert_ids_sh:
+#     meta_dictionary_pert_test_sh[pert_id] = [[p, i] for i, p in enumerate(meta_sh) if p[1] == pert_id]
+#
+# pickle.dump(data_sh, open("arrays/data_sh", "wb"))
+# pickle.dump(meta_sh, open("arrays/meta_sh", "wb"))
+# pickle.dump(all_pert_ids_sh, open("arrays/all_pert_ids_sh", "wb"))
+# pickle.dump(meta_dictionary_pert_test_sh, open("arrays/meta_dictionary_pert_test_sh", "wb"))
 
 # data
-if Path("arrays/train_data").is_file():
+if Path(sub + "arrays/train_data").is_file():
     print("Loading existing data")
-    train_data = pickle.load(open("arrays/train_data", "rb"))
-    test_data = pickle.load(open("arrays/test_data", "rb"))
-    train_meta = pickle.load(open("arrays/train_meta", "rb"))
-    test_meta = pickle.load(open("arrays/test_meta", "rb"))
-    dmso = pickle.load(open("arrays/dmso", "rb"))
-    cell_types = pickle.load(open("arrays/cell_types", "rb"))
-    meta_dictionary_pert = pickle.load(open("arrays/meta_dictionary_pert", "rb"))
-    data_dictionary_cell = pickle.load(open("arrays/data_dictionary_cell", "rb"))
-    all_pert_ids = pickle.load(open("arrays/all_pert_ids", "rb"))
+    train_data = pickle.load(open(sub + "arrays/train_data", "rb"))
+    test_data = pickle.load(open(sub + "arrays/test_data", "rb"))
+    train_meta = pickle.load(open(sub + "arrays/train_meta", "rb"))
+    test_meta = pickle.load(open(sub + "arrays/test_meta", "rb"))
+    cell_types = pickle.load(open(sub + "arrays/cell_types", "rb"))
+    meta_dictionary_pert = pickle.load(open(sub + "arrays/meta_dictionary_pert", "rb"))
+    meta_dictionary_pert_test = pickle.load(open(sub + "arrays/meta_dictionary_pert_test", "rb"))
+    data_dictionary_cell = pickle.load(open(sub + "arrays/data_dictionary_cell", "rb"))
+    all_pert_ids = pickle.load(open(sub + "arrays/all_pert_ids", "rb"))
+    train_perts = pickle.load(open(sub + "arrays/train_perts", "rb"))
+    test_perts = pickle.load(open(sub + "arrays/test_perts", "rb"))
 else:
     print("Parsing data")
     data, meta, all_pert_ids = parse_data("lincs_trt_cp_phase_2.tsv")
-    train_data, test_data, train_meta, test_meta, cell_types, dmso = split_data(data, meta)
+    train_data, test_data, train_meta, test_meta, cell_types, train_perts, test_perts = split_data(data, meta, all_pert_ids)
     meta_dictionary_pert = {}
-    for pert_id in all_pert_ids:
+    for pert_id in train_perts:
         meta_dictionary_pert[pert_id] = [[p, i] for i, p in enumerate(train_meta) if p[1] == pert_id]
+    meta_dictionary_pert_test = {}
+    for pert_id in test_perts:
+        meta_dictionary_pert_test[pert_id] = [[p, i] for i, p in enumerate(test_meta) if p[1] == pert_id]
     data_dictionary_cell = {}
     for cell in cell_types:
         data_dictionary_cell[cell] = [train_data[i] for i, p in enumerate(train_meta) if p[0] == cell]
-    pickle.dump(train_data, open("arrays/train_data", "wb"))
-    pickle.dump(test_data, open("arrays/test_data", "wb"))
-    pickle.dump(train_meta, open("arrays/train_meta", "wb"))
-    pickle.dump(test_meta, open("arrays/test_meta", "wb"))
-    pickle.dump(dmso, open("arrays/dmso", "wb"))
-    pickle.dump(cell_types, open("arrays/cell_types", "wb"))
-    pickle.dump(meta_dictionary_pert, open("arrays/meta_dictionary_pert", "wb"))
-    pickle.dump(data_dictionary_cell, open("arrays/data_dictionary_cell", "wb"))
-    pickle.dump(all_pert_ids, open("arrays/all_pert_ids", "wb"))
+    pickle.dump(train_data, open(sub + "arrays/train_data", "wb"))
+    pickle.dump(test_data, open(sub + "arrays/test_data", "wb"))
+    pickle.dump(train_meta, open(sub + "arrays/train_meta", "wb"))
+    pickle.dump(test_meta, open(sub + "arrays/test_meta", "wb"))
+    pickle.dump(cell_types, open(sub + "arrays/cell_types", "wb"))
+    pickle.dump(meta_dictionary_pert, open(sub + "arrays/meta_dictionary_pert", "wb"))
+    pickle.dump(meta_dictionary_pert_test, open(sub + "arrays/meta_dictionary_pert_test", "wb"))
+    pickle.dump(data_dictionary_cell, open(sub + "arrays/data_dictionary_cell", "wb"))
+    pickle.dump(all_pert_ids, open(sub + "arrays/all_pert_ids", "wb"))
+    pickle.dump(train_perts, open(sub + "arrays/train_perts", "wb"))
+    pickle.dump(test_perts, open(sub + "arrays/test_perts", "wb"))
 
+
+
+# data_sh = pickle.load(open("arrays/data_sh", "rb"))
+# meta_sh = pickle.load(open("arrays/meta_sh", "rb"))
+# all_pert_ids_sh = pickle.load(open("arrays/all_pert_ids_sh", "rb"))
+# meta_dictionary_pert_test_sh = pickle.load(open("arrays/meta_dictionary_pert_test_sh", "rb"))
 print("----------------------------------------------")
 print(train_data.shape)
 print(test_data.shape)
 print("----------------------------------------------")
 cell_decoders = {}
-if os.path.isdir("./models/main_model"):
+if os.path.isdir(sub + "models/main_model"):
     print("Loading model")
-    autoencoder = keras.models.load_model("./models/main_model",
+    autoencoder = keras.models.load_model(sub + "models/main_model",
                                           custom_objects={'correlation_coefficient_loss': correlation_coefficient_loss})
     for cell in cell_types:
-        cell_decoders[cell] = pickle.load(open("./models/" + cell + "_decoder_weights", "rb"))
+        cell_decoders[cell] = pickle.load(open(sub + "models/" + cell + "_decoder_weights", "rb"))
 else:
     print("Building autoencoder ")
     autoencoder = build(input_size, 1, latent_dim)
-    autoencoder.save("./models/main_model")
+    autoencoder.save(sub + "models/main_model")
 
-should_train = False
+should_train = True
 if should_train:
     del autoencoder
     gc.collect()
@@ -304,7 +318,7 @@ if should_train:
     tf.compat.v1.reset_default_graph()
     for e in range(nb_epoch):
         print("Total epoch " + str(e) + " ------------------------------------------------------")
-        autoencoder = keras.models.load_model("./models/main_model", custom_objects={
+        autoencoder = keras.models.load_model(sub + "models/main_model", custom_objects={
             'correlation_coefficient_loss': correlation_coefficient_loss})
         encoder = autoencoder.get_layer("encoder")
         for layer in encoder.layers:
@@ -316,7 +330,7 @@ if should_train:
         if e == 0:
             print("Main autoencoder" + " =========================================")
             p_train = []
-            for pert_id in all_pert_ids:
+            for pert_id in train_perts:
                 pert_list = [p[1] for p in meta_dictionary_pert[pert_id]]
                 median_profile = np.mean(np.asarray(train_data[pert_list]), axis=0)
                 p_train.append(median_profile)
@@ -326,7 +340,7 @@ if should_train:
             for cell in cell_types:
                 decoder = autoencoder.get_layer("decoder")
                 cell_decoders[cell] = decoder.get_weights().copy()
-                pickle.dump(cell_decoders[cell], open("./models/" + cell + "_decoder_weights", "wb"))
+                pickle.dump(cell_decoders[cell], open(sub + "models/" + cell + "_decoder_weights", "wb"))
                 del decoder
             for layer in encoder.layers:
                 layer.trainable = True
@@ -394,7 +408,7 @@ if should_train:
             for label in hm.get_yticklabels():
                 label.set_visible(False)
             # ax.set_title(names[i], x=-1.05)
-        plt.savefig("latent_vectors/latent_vector" + str(e) + ".png")
+        plt.savefig(sub + "latent_vectors/latent_vector" + str(e) + ".png")
         plt.close(None)
 
         print("Training decoders again")
@@ -435,7 +449,7 @@ if should_train:
         autoencoder.get_layer("decoder").set_weights(original_main_decoder_weights)
 
         print("---------------------------------------------------------------\n")
-        autoencoder.save("./models/main_model")
+        autoencoder.save(sub + "models/main_model")
         del autoencoder
         del encoder
         gc.collect()
@@ -443,7 +457,7 @@ if should_train:
         tf.compat.v1.reset_default_graph()
         print("---------------------------------------------------------------\n")
 
-    autoencoder = keras.models.load_model("./models/main_model",
+    autoencoder = keras.models.load_model(sub + "models/main_model",
                                           custom_objects={'correlation_coefficient_loss': correlation_coefficient_loss})
     encoder = autoencoder.get_layer("encoder")
     autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
@@ -452,22 +466,22 @@ if should_train:
 for cell in cell_types:
     weights = cell_decoders[cell]
     c_train = np.asarray(data_dictionary_cell[cell])
-    pickle.dump(weights, open("./models/" + cell + "_decoder_weights", "wb"))
+    pickle.dump(weights, open(sub + "models/" + cell + "_decoder_weights", "wb"))
     autoencoder.get_layer("decoder").set_weights(weights)
     decoded = autoencoder.predict(c_train)
     print(cell + " loss is: " + str(test_loss(decoded, c_train)))
 
+original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
+
 results = {}
 skipped = 0
 img_count = 0
-original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
 test_num = len(test_data)  # len(test_data)
 for i in range(test_num):
     if i % 100 == 0:
         print(str(i) + " - ", end="", flush=True)
     test_meta_object = test_meta[i]
-    closest, closest_profile, median_profile = get_profile(train_data, meta_dictionary_pert, test_meta_object)
-
+    closest, closest_profile, median_profile = get_profile(test_data, meta_dictionary_pert_test, test_meta_object)
     if closest_profile is None:
         skipped = skipped + 1
         continue
@@ -481,8 +495,6 @@ for i in range(test_num):
 
     results["Our correlation is: "] = results.get("Our correlation is: ", 0) + \
                                       stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
-    results["Our correlation2 is: "] = results.get("Our correlation2 is: ", 0) + \
-                                      r2_score(test_profile.flatten(), decoded1.flatten())
 
     decoded1 = autoencoder.predict(median_profile)
     results["Our performance is (median profile): "] = results.get("Our performance is (median profile): ",
@@ -498,9 +510,6 @@ for i in range(test_num):
     results["closest profile: "] = results.get("closest profile: ", 0) + test_loss(closest_profile, test_profile)
     results["closest profile correlation is: "] = results.get("closest profile correlation is: ", 0) + \
                                                   stats.pearsonr(closest_profile.flatten(), test_profile.flatten())[0]
-
-    results["closest profile correlation2 is: "] = results.get("closest profile correlation2 is: ", 0) + \
-                                                  r2_score(test_profile.flatten(), closest_profile.flatten())
 
     results["closest profile (median profile): "] = results.get("closest profile (median profile): ", 0) + test_loss(
         median_profile, test_profile)
@@ -542,7 +551,7 @@ for i in range(test_num):
             for label in hm.get_yticklabels():
                 label.set_visible(False)
             # ax.set_title(names[i], x=-1.05)
-        plt.savefig("profiles/profile" + str(i) + ".png")
+        plt.savefig(sub + "profiles/profile" + str(i) + ".png")
         plt.close(None)
 print(" Done")
 for key, value in results.items():
@@ -550,3 +559,34 @@ for key, value in results.items():
 
 print("skipped " + str(skipped))
 print("Improvement: " + str(results["zero vector loss is: "] / results["Our performance is: "]))
+
+# results = {}
+# skipped = 0
+# test_num = 10000
+# for i in range(test_num):
+#     if i % 100 == 0:
+#         print(str(i) + " - ", end="", flush=True)
+#     test_meta_object = meta_sh[i]
+#     closest, closest_profile, median_profile = get_profile(data_sh, meta_dictionary_pert_test_sh, test_meta_object)
+#
+#     if closest_profile is None:
+#         skipped = skipped + 1
+#         continue
+#
+#     test_profile = np.asarray([data_sh[i]])
+#
+#     median_profile = median_profile / max(np.max(median_profile), abs(np.min(median_profile)))
+#
+#     weights = cell_decoders[meta_sh[i][0]]
+#     autoencoder.get_layer("decoder").set_weights(weights)
+#     decoded1 = autoencoder.predict(median_profile)
+#     results["Our correlation: "] = results.get("Our correlation: ", 0) + \
+#                                    stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
+#     results["Baseline correlation: "] = results.get("Baseline correlation: ", 0) + \
+#                                     stats.pearsonr(median_profile.flatten(), test_profile.flatten())[0]
+#
+# print(" Done")
+# for key, value in results.items():
+#     print(key + str(value / (test_num - skipped)))
+#
+# print("skipped " + str(skipped))

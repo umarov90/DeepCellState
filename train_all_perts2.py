@@ -2,7 +2,7 @@ import os
 import shutil
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import numpy as np
@@ -100,10 +100,10 @@ def build(input_size, channels, latent_dim, filters=(128, 256), encoder=None):
     shape = K.int_shape(x)
     x = Flatten()(x)
     print(x)
-    #x = Dropout(0.8, input_shape=(None, 500736))(x)
+    x = Dropout(0.8, input_shape=(None, 500736))(x)
     latent = Dense(latent_dim)(x)
     print(latent)
-    #latent = Dropout(0.5, input_shape=(None, 64))(latent)
+    latent = Dropout(0.5, input_shape=(None, 64))(latent)
     #x = Dropout(0.5, input_shape=(None, 978, 256))(x)
     # latent = BatchNormalization()(latent)
     # build the encoder model
@@ -164,9 +164,9 @@ def parse_data(file):
         pass
     print("Total: " + str(df.shape))
     df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3")]
-    df = df[(df['pert_type'] == "trt_cp") | (df['pert_type'] == "trt_sh") |
-            (df['pert_type'] == "trt_sh.cgs") | (df['pert_type'] == "trt_sh.css") |
-            (df['pert_type'] == "trt_oe") | (df['pert_type'] == "trt_lig")]
+    # df = df[(df['pert_type'] == "trt_cp") | (df['pert_type'] == "trt_sh") |
+    #         (df['pert_type'] == "trt_sh.cgs") | (df['pert_type'] == "trt_sh.css") |
+    #         (df['pert_type'] == "trt_oe") | (df['pert_type'] == "trt_lig")]
     # df = df[(df['pert_type'] == "trt_cp")]
     print("Cell filtering: " + str(df.shape))
     df = df.groupby(['cell_id', 'pert_id']).filter(lambda x: len(x) > 1)
@@ -175,15 +175,15 @@ def parse_data(file):
     # df = df.groupby(['cell_id', 'pert_id'], as_index=False).mean()
     # df = df.groupby(['cell_id', 'pert_id', 'pert_type'], as_index=False).mean()  # , 'pert_type'
     # print("Merging: " + str(df.shape))
-    df.pert_type.value_counts().to_csv("trt_count_final.tsv", sep='\t')
+    #df.pert_type.value_counts().to_csv("trt_count_final.tsv", sep='\t')
     cell_ids = df["cell_id"].values
     pert_ids = df["pert_id"].values
     all_pert_ids = set(pert_ids)
     pert_idose = df["pert_idose"].values
     pert_itime = df["pert_itime"].values
-    pert_type = df["pert_type"].values
-    perts = np.stack([cell_ids, pert_ids, pert_idose, pert_itime, pert_type]).transpose()  # , pert_idose, pert_itime, pert_type
-    df = df.drop(['cell_id', 'pert_id', 'pert_idose', 'pert_itime', 'pert_type'],
+    #pert_type = df["pert_type"].values
+    perts = np.stack([cell_ids, pert_ids, pert_idose, pert_itime]).transpose()  # , pert_idose, pert_itime, pert_type
+    df = df.drop(['cell_id', 'pert_id', 'pert_idose', 'pert_itime'],
                  1)  # , 'pert_idose', 'pert_itime', 'pert_type'
     try:
         df = df.drop('cid', 1)
@@ -265,7 +265,7 @@ def find_closest_corr(train_data, input_profile, test_profile):
     return best_corr
 
 
-data_folder = "/home/user/data/DeepFake/"
+data_folder = "/home/user/data/DeepFake/sub1/"
 os.chdir(data_folder)
 shutil.rmtree('models')
 os.makedirs('models')
@@ -296,7 +296,7 @@ if Path("arrays/train_data").is_file():
     meta_dictionary_pert_val = pickle.load(open("arrays/meta_dictionary_pert_val", "rb"))
 else:
     print("Parsing data")
-    data, meta, all_pert_ids = parse_data("lincs_phase_1_2.tsv")
+    data, meta, all_pert_ids = parse_data("../lincs_trt_cp_phase_2.tsv")
     train_data, train_meta, test_data, test_meta, val_data, \
     val_meta, cell_types, train_perts, val_perts, test_perts = split_data(data, meta, all_pert_ids)
     meta_dictionary_pert = {}
