@@ -47,6 +47,15 @@ gctoo = pg.parse("GSE92742_Broad_LINCS_Level5_COMPZ.MODZ_n473647x12328.gctx", ci
 gctoo.col_metadata_df = sig_info.copy()
 
 df_data_1 = gctoo.data_df
+rids = df_data_1.index.tolist()
+symbols = []
+for i in range(len(rids)):
+    gene_symbol = gene_info["pr_gene_symbol"][gene_info["pr_gene_id"] == rids[i]].values[0]
+    symbols.append(gene_symbol)
+
+with open("gene_symbols.csv", 'w+') as f:
+    f.write('\n'.join(symbols))
+
 df_data_1 = df_data_1.transpose()
 
 df_data_1["cell_id"] = gctoo.col_metadata_df["cell_id"]
@@ -54,7 +63,7 @@ df_data_1["pert_id"] = gctoo.col_metadata_df["pert_id"]
 df_data_1["pert_idose"] = gctoo.col_metadata_df["pert_idose"]
 df_data_1["pert_itime"] = gctoo.col_metadata_df["pert_itime"]
 df_data_1["pert_type"] = gctoo.col_metadata_df["pert_type"]
-
+df_data_1['pert_type'].replace("trt_cp", 'trt_cp_1', inplace=True)
 #df_data_1.to_csv("cell_data_trt_sh.tsv", sep='\t')
 
 
@@ -84,10 +93,13 @@ df_data_2["pert_id"] = gctoo.col_metadata_df["pert_id"]
 df_data_2["pert_idose"] = gctoo.col_metadata_df["pert_idose"]
 df_data_2["pert_itime"] = gctoo.col_metadata_df["pert_itime"]
 df_data_2["pert_type"] = gctoo.col_metadata_df["pert_type"]
+df_data_2['pert_type'].replace("trt_cp", 'trt_cp_2', inplace=True)
 
 df_data_3 = pd.concat([df_data_1, df_data_2]).drop_duplicates().reset_index(drop=True)
+df_data_3.head(5)
 print(df_data_1.shape)
 print(df_data_2.shape)
 print(df_data_3.shape)
-
+print(df_data_3.head(5))
+exit()
 df_data_3.to_csv("lincs_phase_1_2.tsv", sep='\t')

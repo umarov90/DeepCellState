@@ -2,7 +2,7 @@ import os
 import shutil
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import numpy as np
@@ -41,7 +41,8 @@ from tensorflow.python.keras.layers import Input
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras import backend as K
 from tensorflow import keras
-from copy import deepcopy
+import numpy as np
+from sklearn.metrics import r2_score
 import matplotlib
 
 matplotlib.use("Agg")
@@ -57,14 +58,14 @@ assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
 config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 # config2 = tf.config.experimental.set_memory_growth(physical_devices[1], True)
 
-#tf.random.set_seed(0)
-#np.random.seed(0)
+tf.random.set_seed(0)
+np.random.seed(0)
 
 # parameters
-wdir = "sub2/"
-test_fold = "final_test"
+wdir = "sub5/"
+test_fold = "7"
 input_size = 978
-nb_epoch = 100
+nb_epoch = 200
 batch_size = 128
 latent_dim = 128
 
@@ -98,6 +99,7 @@ def build(input_size, channels, latent_dim):
     x = Flatten()(x)
     latent = Dense(latent_dim, kernel_regularizer=regularizers.l2(1e-5),
                    activity_regularizer=regularizers.l1(1e-5))(x)
+    latent = BatchNormalization()(latent)
     #, kernel_regularizer=regularizers.l2(1e-5),
     #               activity_regularizer=regularizers.l1(1e-5)
     encoder = Model(inputs, latent, name="encoder")
@@ -125,11 +127,10 @@ def parse_data(file):
     df = pd.read_csv(file, sep="\t")
     df.reset_index(drop=True, inplace=True)
     print("Total: " + str(df.shape))
-    #df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3")]
-    df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") |
-            (df['cell_id'] == "VCAP") | (df['cell_id'] == "A549") | (df['cell_id'] == "A375")]
-    #df = df[(df['pert_type'] == "trt_cp_2")]
-    # df = df[(df['pert_type'] == "trt_cp") | (df['pert_type'] == "trt_sh") |
+    df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3")]
+    #df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") |
+    #        (df['cell_id'] == "VCAP") | (df['cell_id'] == "A549") | (df['cell_id'] == "A375")]
+    df = df[(df['pert_type'] == "trt_cp_2")]
     #         (df['pert_type'] == "trt_sh.cgs") | (df['pert_type'] == "trt_sh.css") |
     #         (df['pert_type'] == "trt_oe") | (df['pert_type'] == "trt_lig")]
     # df = df[(df['pert_type'] == "trt_cp")]
@@ -197,10 +198,10 @@ def get_profile(data, meta_data, test_pert, train_mode=False):
 
 data_folder = "/home/user/data/DeepFake/" + wdir
 os.chdir(data_folder)
-# shutil.rmtree('models')
-# os.makedirs('models')
-# shutil.rmtree('arrays')
-# os.makedirs('arrays')
+shutil.rmtree('models')
+os.makedirs('models')
+shutil.rmtree('arrays')
+os.makedirs('arrays')
 
 # data_sh, meta_sh, all_pert_ids_sh = parse_data("lincs_trt_cp_phase_1.tsv")
 # rng_state = np.random.get_state()
@@ -270,7 +271,7 @@ else:
 
 train_perf = []
 val_perf = []
-should_train = False
+should_train = True
 if should_train:
     del autoencoder
     gc.collect()
@@ -289,18 +290,84 @@ if should_train:
 
         if e == 0:
             print("Main autoencoder" + " =========================================")
-            #autoencoder = keras.models.load_model("../default_autoencoder")
-            callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=50, restore_best_weights=True)
-            autoencoder.fit(train_data, train_data, epochs=200, batch_size=batch_size, validation_split=0.1,
-                            callbacks=[callback])  # , validation_split=0.1, callbacks=[callback]
-            autoencoder.save("../default_autoencoder")
+            autoencoder = keras.models.load_model("../default_autoencoder")
+            # callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=50, restore_best_weights=True)
+            # autoencoder.fit(train_data, train_data, epochs=200, batch_size=batch_size, validation_split=0.1,
+            #                 callbacks=[callback])  # , validation_split=0.1, callbacks=[callback]
+            # autoencoder.save("../default_autoencoder")
             for cell in cell_types:
                 decoder = autoencoder.get_layer("decoder")
                 cell_decoders[cell] = decoder.get_weights().copy()
                 pickle.dump(cell_decoders[cell], open("./models/" + cell + "_decoder_weights", "wb"))
                 del decoder
+            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-5))
 
+        print("latent encoder")
+        utils1.draw_vectors(encoder.predict(val_data), "latent_vectors/" + str(e) + "_0")
+        latent_epochs = 1
+        #p = 0
+        #if e == nb_epoch - 1:
+        #    latent_epochs = 40
+        for k in range(latent_epochs):
+            print("finding closest perturbations")
+            ###########################################################
+            # Training
+            ###########################################################
+            closest_perturbations = []
+            closest_indexes = []
+            for i in range(len(train_meta)):
+                closest, profile, median_profile, all_profiles = get_profile(train_data,
+                                                                             meta_dictionary_pert[train_meta[i][1]],
+                                                                             train_meta[i])
+                if closest != -1:
+                    closest_perturbations.append(train_data[i])
+                closest_indexes.append(closest)
+            closest_perturbations = np.asarray(closest_perturbations)
+            latent_vectors = encoder.predict(train_data)
+            closest_profile_latent_vectors = []
+            for i in range(len(train_meta)):
+                if closest_indexes[i] != -1:
+                    mean_vector = np.mean([latent_vectors[closest_indexes[i]], latent_vectors[i]], axis=0)
+                    closest_profile_latent_vectors.append(mean_vector)
+            closest_profile_latent_vectors = np.asarray(closest_profile_latent_vectors)
+            ############################################################
+            # Validation
+            ###########################################################
+            closest_perturbations_val = []
+            closest_indexes_val = []
+            for i in range(len(val_meta)):
+                closest, profile, median_profile, all_profiles = get_profile(val_data,
+                                                                             meta_dictionary_pert_val[val_meta[i][1]],
+                                                                             val_meta[i])
+                if closest != -1:
+                    closest_perturbations_val.append(val_data[i])
+                closest_indexes_val.append(closest)
+            closest_perturbations_val = np.asarray(closest_perturbations_val)
+            latent_vectors_val = encoder.predict(val_data)
+            closest_profile_latent_vectors_val = []
+            for i in range(len(val_meta)):
+                if closest_indexes_val[i] != -1:
+                    mean_vector = np.mean([latent_vectors_val[closest_indexes_val[i]], latent_vectors_val[i]], axis=0)
+                    closest_profile_latent_vectors_val.append(mean_vector)
+            closest_profile_latent_vectors_val = np.asarray(closest_profile_latent_vectors_val)
+            ##############################################################
+            H = encoder.fit(closest_perturbations, closest_profile_latent_vectors,
+                            validation_data=(closest_perturbations_val, closest_profile_latent_vectors_val),
+                            epochs=2, batch_size=batch_size)
+            # val_loss = H.history['val_loss']
+            # print(val_loss)
+            # if k == 0:
+            #     best_val_loss = val_loss
+            # elif val_loss > best_val_loss:
+            #     p = p + 1
+            # else:
+            #     best_val_loss = val_loss
+            #     p = 0
+            # if p > 2:
+            #     print(best_val_loss)
+            #     break
         utils1.draw_vectors(encoder.predict(val_data), "latent_vectors/" + str(e) + "_1")
+
         print("Training decoders again")
         decoder = autoencoder.get_layer("decoder")
         encoder_weights_copy = encoder.get_weights().copy()
@@ -318,40 +385,18 @@ if should_train:
             input_profiles = []
             output_profiles = []
             for i in range(len(cell_data)):
-                #input_profiles.append(cell_data[i][0])
-                #output_profiles.append(cell_data[i][0])
-                closest, profile, median_profile, all_profiles = get_profile(train_data,
-                                                                             meta_dictionary_pert[cell_data[i][1][1]],
-                                                                             cell_data[i][1], train_mode=True)
-                if median_profile is not None:
-                    for p in all_profiles:
-                        input_profiles.append(p)
-                        output_profiles.append(cell_data[i][0])
+                input_profiles.append(cell_data[i][0])
+                output_profiles.append(cell_data[i][0])
 
             input_profiles = np.asarray(input_profiles)
             output_profiles = np.asarray(output_profiles)
             autoencoder.get_layer("decoder").set_weights(cell_decoders[cell])
             if e == nb_epoch - 1:
-                cell_data_val = np.asarray([[val_data[i], val_meta[i]] for i, p in enumerate(val_meta) if p[0] == cell])
-                input_profiles_val = []
-                output_profiles_val = []
-                for i in range(len(cell_data_val)):
-                    closest, profile, median_profile, all_profiles = get_profile(val_data,
-                                                                                 meta_dictionary_pert_val[
-                                                                                     cell_data_val[i][1][1]],
-                                                                                 cell_data_val[i][1])
-                    if median_profile is not None:
-                        for p in all_profiles:
-                            input_profiles_val.append(p)
-                            output_profiles_val.append(cell_data_val[i][0])
-                input_profiles_val = np.asarray(input_profiles_val)
-                output_profiles_val = np.asarray(output_profiles_val)
                 callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=40, restore_best_weights=True)
                 autoencoder.fit(input_profiles, output_profiles, epochs=2000, batch_size=batch_size,
-                                validation_data=(input_profiles_val, output_profiles_val), callbacks=[callback])
+                                validation_split=0.1, callbacks=[callback])
             else:
-                autoencoder.fit(input_profiles, output_profiles, epochs=2, batch_size=batch_size)
-
+                autoencoder.fit(input_profiles, output_profiles, epochs=1, batch_size=batch_size)
             cell_decoders[cell] = autoencoder.get_layer("decoder").get_weights()
             gc.collect()
         autoencoder.get_layer("decoder").set_weights(original_main_decoder_weights)
@@ -439,7 +484,7 @@ if should_train:
                 for cell in cell_types:
                     pickle.dump(cell_decoders[cell], open("./best/" + cell + "_decoder_weights", "wb"))
 
-        if count > 2:
+        if count > 100:
             e = nb_epoch - 2
             count = 0
             autoencoder = keras.models.load_model("./best/main_model")
@@ -456,71 +501,17 @@ if should_train:
 
 autoencoder = keras.models.load_model("./models/main_model")
 encoder = autoencoder.get_layer("encoder")
-decoder = autoencoder.get_layer("decoder")
 
-######################################################################################################
+#######################################################################################################
 # Latent vector output for analysis
-######################################################################################################
-#family_name = "5-HT modulator"
-#family = np.loadtxt("folds/" + family_name + "_ids", dtype='str')
-# inds = [i for i, p in enumerate(train_meta) if p[2] == "trt_sh"]
-# latent_vectors = encoder.predict(train_data[inds])
-# np.savetxt("sh", latent_vectors, delimiter=',')
+#######################################################################################################
+# family_name = "5-HT modulator"
+# family = np.loadtxt("folds/" + family_name + "_ids", dtype='str')
+# inds = [i for i, p in enumerate(meta) if p[1] in family]
+# latent_vectors = encoder.predict(data[inds])
+# np.savetxt("families/" + family_name, latent_vectors, delimiter=',')
 # exit()
-symbols = np.loadtxt("../gene_symbols.csv", dtype="str")
-print("ALL cells________________________________________________")
-assoc = {}
-smallest_cor = 1.0
-for i in range(input_size):
-    print(i, end=" - ")
-    data_slice = deepcopy(train_data[:1000])
-    latent_vectors_1 = encoder.predict(data_slice)
-    for j in range(len(data_slice)):
-        data_slice[j][i] = -1 * data_slice[j][i]
-    latent_vectors_2 = encoder.predict(data_slice)
-    for j in range(latent_dim):
-        corr = stats.pearsonr(latent_vectors_1[:, j], latent_vectors_2[:, j])[0]
-        if corr < smallest_cor:
-            smallest_cor = corr
-        if corr < 0.99:
-            assoc.setdefault(j, []).append(symbols[i])
 
-for key in sorted(assoc):
-    print(key, end="\t")
-    for v in assoc[key]:
-        print(v, end="\t")
-    print()
-
-
-for cell in cell_types:
-    print(cell + "________________________________________________")
-    assoc = {}
-    smallest_cor = 1.0
-    for i in range(latent_dim):
-        print(i, end=" - ")
-        data_slice = np.asarray(deepcopy([train_data[i] for i, p in enumerate(train_meta) if p[0] == cell][:1000]))
-        latent_vectors_1 = encoder.predict(data_slice)
-        reconstruction1 = decoder.predict(latent_vectors_1)
-        for j in range(len(latent_vectors_1)):
-            latent_vectors_1[j][i] = -1 * latent_vectors_1[j][i]
-        reconstruction2 = decoder.predict(latent_vectors_1)
-        for j in range(input_size):
-            corr = stats.pearsonr(reconstruction1[:, j].flatten(), reconstruction2[:, j].flatten())[0]
-            if corr < smallest_cor:
-                smallest_cor = corr
-            if corr < 0.70:
-                assoc.setdefault(i, []).append(symbols[j])
-
-    print()
-    print(smallest_cor)
-
-    for key in sorted(assoc):
-        print(key, end="\t")
-        for v in assoc[key]:
-            print(v, end="\t")
-        print()
-
-exit()
 results = {}
 skipped = 0
 img_count = 0
@@ -535,7 +526,7 @@ all_results = []
 closest_cor = 0
 results = {}
 
-test_trt = "trt_lig"
+test_trt = "trt_cp_2"
 for i in range(test_num):
     if i % 100 == 0:
         print(str(i) + " - ", end="", flush=True)
