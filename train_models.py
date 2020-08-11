@@ -16,7 +16,7 @@ test_folds = range(1, 11)
 #               "histaminergic_ids", "antipsychotic_ids", "GABAergic_ids", "dopaminergic_ids"]
 # test_folds = ["final_test"]
 input_size = 978
-latent_dim = 128
+latent_dim = 32
 data_folder = "/home/user/data/DeepFake/" + wdir
 
 

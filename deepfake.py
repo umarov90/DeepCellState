@@ -34,7 +34,7 @@ config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 tf.keras.backend.set_floatx('float64')
 
 nb_total_epoch = 100
-nb_autoencoder_epoch = 200
+nb_autoencoder_epoch = 50
 nb_frozen_epoch = 200
 batch_size = 32
 use_existing = False
@@ -129,7 +129,7 @@ def discriminator_loss(real_output, fake_output):
 # @tf.function
 def train_step(input_profiles, output_profiles, generator, discriminator, epoch):
     gan_epochs = 4
-    gen_learning_start_epoch = 10
+    gen_learning_start_epoch = 4
     if epoch > gen_learning_start_epoch:
         gan_epochs = 31
     for d in range(gan_epochs):
@@ -202,7 +202,11 @@ def get_autoencoder(input_size, latent_dim, data):
     while e < nb_total_epoch:
         print("Total epoch " + str(e) + " ------------------------------------------------------")
         if e > 0:
-            autoencoder = keras.models.load_model("./weights/main_model")
+            autoencoder_saved = keras.models.load_model("./weights/main_model")
+            autoencoder = build(input_size, latent_dim)
+            autoencoder.set_weights(autoencoder_saved.get_weights())
+            autoencoder.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(learning_rate))
+            del autoencoder_saved
             discriminator = make_discriminator_model(input_size)
             encoder = autoencoder.get_layer("encoder")
 
@@ -238,8 +242,8 @@ def get_autoencoder(input_size, latent_dim, data):
             input_profiles = []
             output_profiles = []
             for i in range(len(cell_data)):
-                # input_profiles.append(cell_data[i][0])
-                # output_profiles.append(cell_data[i][0])
+                input_profiles.append(cell_data[i][0])
+                output_profiles.append(cell_data[i][0])
                 closest, profile, mean_profile, all_profiles = data.get_profile(data.train_data,
                                                                                 data.meta_dictionary_pert[
                                                                                     cell_data[i][1][1]],
@@ -276,8 +280,7 @@ def get_autoencoder(input_size, latent_dim, data):
             tf.random.set_seed(1)
             if e != nb_total_epoch - 1:
                 discriminator.set_weights(cell_discriminators[cell])
-                z_mean, z_log_var, z = encoder.predict(input_profiles)
-                train_step(z, output_profiles, decoder, discriminator, e)
+                train_step(input_profiles, output_profiles, autoencoder, discriminator, e)
                 cell_discriminators[cell] = discriminator.get_weights()
             cell_decoders[cell] = autoencoder.get_layer("decoder").get_weights()
             gc.collect()
