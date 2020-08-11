@@ -50,6 +50,7 @@ from tensorflow.python.keras.optimizers import Adam
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import utils1
 
 tf.compat.v1.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
@@ -57,160 +58,65 @@ assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
 config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 # config2 = tf.config.experimental.set_memory_growth(physical_devices[1], True)
 
-tf.random.set_seed(0)
-np.random.seed(0)
+#tf.random.set_seed(0)
+#np.random.seed(0)
 
 # parameters
-BATCH_NORM_DECAY = 0.997
-BATCH_NORM_EPSILON = 1e-5
-L2_WEIGHT_DECAY = 2e-5
+wdir = "sub4/"
+test_fold = "1"
 input_size = 978
-nb_epoch = 400
-batch_size = 32
-latent_dim = 64
-vmin = -1
+nb_epoch = 100
+batch_size = 128
+latent_dim = 128
 
 
-def correlation_coefficient_loss(y_true, y_pred):
-    x = y_true
-    y = y_pred
-    mx = K.mean(x)
-    my = K.mean(y)
-    xm, ym = x - mx, y - my
-    r_num = K.sum(tf.multiply(xm, ym))
-    r_den = K.sqrt(tf.multiply(K.sum(K.square(xm)), K.sum(K.square(ym))))
-    r = r_num / r_den
-
-    r = K.maximum(K.minimum(r, 1.0), -1.0)
-    return 1 - K.square(r)
-
-
-def build(input_size, channels, latent_dim, layer_units=(256, 128), encoder=None):
+def build(input_size, channels, latent_dim):
+    layer_units = [512, 256]
     input_shape = (input_size, channels)
-    # define the input to the encoder
+    drop_rate = 0.8
     inputs = Input(shape=input_shape)
     x = inputs
-    x = Dropout(0.2, input_shape=(None, 978, 1))(x)
-    print(x)
-    # loop over the number of filters
+    x = Dropout(0.4, input_shape=(None, 978, 1))(x)
     for f in layer_units:
         x = Dense(f)(x)
         x = LeakyReLU(alpha=0.2)(x)
-    # Shape info needed to build Decoder Model
+
+    x = Dropout(drop_rate, input_shape=(None, input_size, layer_units[1]))(x)
     shape = K.int_shape(x)
     x = Flatten()(x)
-    print(x)
-    x = Dropout(0.8, input_shape=(None, 125184))(x)
-    latent = Dense(latent_dim, activity_regularizer=regularizers.l1(2e-5))(x)
-    print(latent)
-    latent = Dropout(0.5, input_shape=(None, 64))(latent)
-    # x = Dropout(0.5, input_shape=(None, 978, 256))(x)
-    # latent = BatchNormalization()(latent)
-    # build the encoder model
+    latent = Dense(latent_dim, kernel_regularizer=regularizers.l2(1e-5),
+                   activity_regularizer=regularizers.l1(1e-5))(x)
+    #, kernel_regularizer=regularizers.l2(1e-5),
+    #               activity_regularizer=regularizers.l1(1e-5)
     encoder = Model(inputs, latent, name="encoder")
-    # start building the decoder model which will accept the
-    # output of the encoder as its inputs
     latent_inputs = Input(shape=(latent_dim,))
     x = Dense(shape[1] * shape[2])(latent_inputs)
     x = Reshape((shape[1], shape[2]))(x)
-
-    # loop over our number of filters again, but this time in
-    # reverse order
     for f in layer_units[::-1]:
         x = Dense(f)(x)
         x = LeakyReLU(alpha=0.2)(x)
 
-    # apply a single CONV_TRANSPOSE layer used to recover the
-    # original depth of the image
-    ###########################################################################################################
-    # Maybe her BN as well
-    ###########################################################################################################
+    x = Dropout(drop_rate, input_shape=(None, input_size, layer_units[0]))(x)
     x = Dense(1)(x)
-    # outputs = LeakyReLU(alpha=0.2)(x)
-    # outputs = x
-    outputs = Activation('tanh')(x)
-    # outputs = BatchNormalization()(outputs)
-    # build the decoder model
+    outputs = Activation("tanh")(x)
     decoder = Model(latent_inputs, outputs, name="decoder")
-    # our autoencoder is the encoder + decoder
-    autoencoder = Model(inputs, decoder(encoder(inputs)),
-                        name="autoencoder")
-    # return a 3-tuple of the encoder, decoder, and autoencoder
+    autoencoder = Model(inputs, decoder(encoder(inputs)), name="autoencoder")
     return autoencoder
 
 
 def test_loss(prediction, ground_truth):
-    prediction = np.squeeze(np.asarray(prediction))
-    ground_truth = np.squeeze(np.asarray(ground_truth))
-    sub = np.subtract(prediction, ground_truth)
-    square = np.square(sub)
-    mean = square.mean()
-    return mean
+    return np.sqrt(np.mean((prediction-ground_truth)**2))
 
 
 def parse_data(file):
     print("Parsing data at " + file)
     df = pd.read_csv(file, sep="\t")
     df.reset_index(drop=True, inplace=True)
-    try:
-        df = df.drop('Unnamed: 0', 1)
-    except Exception as e:
-        pass
-    try:
-        df = df.drop('distil_id', 1)
-    except Exception as e:
-        pass
     print("Total: " + str(df.shape))
-    df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3")]
-    df = df[(df['pert_type'] == "trt_sh.cgs")]
-    # df = df[(df['pert_type'] == "trt_cp")]
-    print("Cell filtering: " + str(df.shape))
-    #df = df.groupby(['cell_id', 'pert_id']).filter(lambda x: len(x) > 1)
-    print("Pert filtering: " + str(df.shape))
-    #df = df.drop_duplicates(['cell_id', 'pert_id', 'pert_idose', 'pert_itime', 'pert_type'])
-    # df = df.groupby(['cell_id', 'pert_id'], as_index=False).mean()
-    df = df.groupby(['cell_id', 'pert_id', 'pert_type'], as_index=False).mean()  # , 'pert_type'
-    print("Merging: " + str(df.shape))
-    #df.drop(df[df.score < 50].index, inplace=True)
-    #df = df[df.std(axis=1) > 0.75]
-    print("STD filtering: " + str(df.shape))
-    df.pert_type.value_counts().to_csv("trt_count_final.tsv", sep='\t')
-    cell_ids = df["cell_id"].values
-    pert_ids = df["pert_id"].values
-    all_pert_ids = set(pert_ids)
-    #pert_idose = df["pert_idose"].values
-    #pert_itime = df["pert_itime"].values
-    pert_type = df["pert_type"].values
-    perts = np.stack([cell_ids, pert_ids, pert_type]).transpose()  # , pert_idose, pert_itime, pert_type
-    df = df.drop(['cell_id', 'pert_id', 'pert_type'],
-                 1)  # , 'pert_idose', 'pert_itime', 'pert_type'
-    try:
-        df = df.drop('cid', 1)
-    except Exception as e:
-        pass
-    data = df.values
-    # data = (data - np.min(data)) / (np.max(data) - np.min(data))
-    # for i in range(len(data)):
-    data = data / max(np.max(data), abs(np.min(data)))
-    # data = 2 * (data - np.min(data)) / (np.max(data) - np.min(data))  - 1
-    data = np.expand_dims(data, axis=-1)
-    return data, perts, all_pert_ids
-
-
-def parse_data_phase2(file):
-    print("Parsing data at " + file)
-    df = pd.read_csv(file, sep="\t")
-    df.reset_index(drop=True, inplace=True)
-    try:
-        df = df.drop('Unnamed: 0', 1)
-    except Exception as e:
-        pass
-    try:
-        df = df.drop('distil_id', 1)
-    except Exception as e:
-        pass
-    print("Total: " + str(df.shape))
-    df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3")]
+    #df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3")]
+    df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") |
+            (df['cell_id'] == "VCAP") | (df['cell_id'] == "A549") | (df['cell_id'] == "A375")]
+    df = df[(df['pert_type'] == "trt_cp")]
     # df = df[(df['pert_type'] == "trt_cp") | (df['pert_type'] == "trt_sh") |
     #         (df['pert_type'] == "trt_sh.cgs") | (df['pert_type'] == "trt_sh.css") |
     #         (df['pert_type'] == "trt_oe") | (df['pert_type'] == "trt_lig")]
@@ -220,22 +126,17 @@ def parse_data_phase2(file):
     print("Pert filtering: " + str(df.shape))
     # df = df.drop_duplicates(['cell_id', 'pert_id', 'pert_idose', 'pert_itime', 'pert_type'])
     # df = df.groupby(['cell_id', 'pert_id'], as_index=False).mean()
-    df = df.groupby(['cell_id', 'pert_id'], as_index=False).mean()  # , 'pert_type'
+    df = df.groupby(['cell_id', 'pert_id', 'pert_type'], as_index=False).mean()  # , 'pert_type'
     # print("Merging: " + str(df.shape))
-    #df.pert_type.value_counts().to_csv("trt_count_final.tsv", sep='\t')
+    # df.pert_type.value_counts().to_csv("trt_count_final.tsv", sep='\t')
     cell_ids = df["cell_id"].values
     pert_ids = df["pert_id"].values
     all_pert_ids = set(pert_ids)
     # pert_idose = df["pert_idose"].values
     # pert_itime = df["pert_itime"].values
-    pert_type = ["trt_cp"] * len(cell_ids)
-    perts = np.stack([cell_ids, pert_ids, pert_type]).transpose()  # , pert_idose, pert_itime, pert_type
-    df = df.drop(['cell_id', 'pert_id'],
-                 1)  # , 'pert_idose', 'pert_itime', 'pert_type'
-    try:
-        df = df.drop('cid', 1)
-    except Exception as e:
-        pass
+    pert_type = df["pert_type"].values
+    perts = np.stack([cell_ids, pert_ids, pert_type]).transpose()
+    df = df.drop(['cell_id', 'pert_id', 'pert_type', 'Unnamed: 0'], 1)
     data = df.values
     # data = (data - np.min(data)) / (np.max(data) - np.min(data))
     # for i in range(len(data)):
@@ -246,6 +147,7 @@ def parse_data_phase2(file):
 
 
 def split_data(data, meta, all_pert_ids):
+    print(test_fold)
     cell_types = set([meta[i][0] for i, x in enumerate(meta)])
     rng_state = np.random.get_state()
     np.random.shuffle(data)
@@ -254,67 +156,43 @@ def split_data(data, meta, all_pert_ids):
     all_pert_ids_list = list(all_pert_ids)
     shuffle(all_pert_ids_list)
 
-    train_perts = all_pert_ids_list[:int(0.8 * len(all_pert_ids_list))]
-    val_perts = all_pert_ids_list[int(0.8 * len(all_pert_ids_list)):int(0.9 * len(all_pert_ids_list))]
-    test_perts = all_pert_ids_list[int(0.9 * len(all_pert_ids_list)):]
+    test_perts = np.loadtxt("folds/" + str(test_fold), dtype='str')
+    z = list(all_pert_ids - set(test_perts))
+    shuffle(z)
+    train_perts = z[:int(0.95 * len(z))]
+    val_perts = z[int(0.95 * len(z)):]
 
-    train_data = np.asarray([data[i] for i, m in enumerate(meta) if m[1] in train_perts])
+    train_data = np.asarray([data[i] for i, m in enumerate(meta) if m[1] in train_perts and m[0] != "A375"])
     test_data = np.asarray([data[i] for i, m in enumerate(meta) if m[1] in test_perts])
     val_data = np.asarray([data[i] for i, m in enumerate(meta) if m[1] in val_perts])
-    train_meta = np.asarray([m for i, m in enumerate(meta) if m[1] in train_perts])
+    train_meta = np.asarray([m for i, m in enumerate(meta) if m[1] in train_perts and m[0] != "A375"])
     test_meta = np.asarray([m for i, m in enumerate(meta) if m[1] in test_perts])
     val_meta = np.asarray([m for i, m in enumerate(meta) if m[1] in val_perts])
 
     return train_data, train_meta, test_data, test_meta, val_data, val_meta, cell_types, train_perts, val_perts, test_perts
 
 
-def get_duration(param):
-    vals = param.split(" ")
-    duration = float(vals[0])
-    if vals[1] == "m":
-        duration = duration * 60
-    elif vals[1] == "h":
-        duration = duration * 60 * 60
-    return duration
-
-
-def get_profile(data, meta_data, test_pert, train_mode=False):
-    pert_list = [p[1] for p in meta_data if
-                 p[0][0] != test_pert[0] ]  # and p[0][2] == test_pert[2] and p[0][3] == test_pert[3]
+def get_profile(data, meta_data, test_pert, train_data=False):
+    if train_data:
+        pert_list = [p[1] for p in meta_data if
+                 p[0][0] != test_pert[0]]  # and p[0][2] == test_pert[2] and p[0][3] == test_pert[3]
+    else:
+        pert_list = [p[1] for p in meta_data if
+                 p[0][0] != test_pert[0] and p[0][0] == "A375"]
     if len(pert_list) > 0:
         random_best = randint(0, len(pert_list) - 1)
         mean_profile = np.mean(np.asarray(data[pert_list]), axis=0, keepdims=True)
-        return np.asarray([data[pert_list[random_best]]]), mean_profile, data[pert_list]
+        return random_best, np.asarray([data[pert_list[random_best]]]), mean_profile, data[pert_list]
     else:
-        return None, None, None
+        return -1, None, None, None
 
 
-def find_closest_corr(train_data, input_profile, test_profile):
-    best_corr = -1
-    best_ind = -1
-    for i, p in enumerate(train_data):
-        p_corr = stats.pearsonr(p.flatten(), input_profile.flatten())[0]
-        if p_corr > best_corr:
-            best_corr = p_corr
-            best_ind = i
-    # best_corr = stats.pearsonr(train_data[best_ind].flatten(), test_profile.flatten())[0]
-    return best_corr
-
-
-data_folder = "/home/user/data/DeepFake/sub4/"
+data_folder = "/home/user/data/DeepFake/" + wdir
 os.chdir(data_folder)
 shutil.rmtree('models')
 os.makedirs('models')
 shutil.rmtree('arrays')
 os.makedirs('arrays')
-
-# data_sh, meta_sh, all_pert_ids_sh = parse_data("lincs_trt_cp_phase_1.tsv")
-# rng_state = np.random.get_state()
-# np.random.shuffle(data_sh)
-# np.random.set_state(rng_state)
-# np.random.shuffle(meta_sh)
-# pickle.dump(data_sh, open("arrays/data_sh", "wb"))
-# pickle.dump(meta_sh, open("arrays/meta_sh", "wb"))
 
 # data
 if Path("arrays/train_data").is_file():
@@ -332,11 +210,7 @@ if Path("arrays/train_data").is_file():
     meta_dictionary_pert_val = pickle.load(open("arrays/meta_dictionary_pert_val", "rb"))
 else:
     print("Parsing data")
-    data, meta, all_pert_ids = parse_data("../lincs_phase_1_2.tsv")
-    #data2, meta2, all_pert_ids2 = parse_data_phase2("../lincs_trt_cp_phase_2.tsv")
-    #data = np.concatenate((data1, data2))
-    #meta = np.concatenate((meta1, meta2))
-    #all_pert_ids = all_pert_ids1.union(all_pert_ids2)
+    data, meta, all_pert_ids = parse_data("../LINCS/lincs_phase_1_2.tsv")
     train_data, train_meta, test_data, test_meta, val_data, \
     val_meta, cell_types, train_perts, val_perts, test_perts = split_data(data, meta, all_pert_ids)
     meta_dictionary_pert = {}
@@ -370,8 +244,7 @@ print("----------------------------------------------")
 cell_decoders = {}
 if os.path.isdir("./models/main_model"):
     print("Loading model")
-    autoencoder = keras.models.load_model("./models/main_model",
-                                          custom_objects={'correlation_coefficient_loss': correlation_coefficient_loss})
+    autoencoder = keras.models.load_model("./models/main_model")
     for cell in cell_types:
         cell_decoders[cell] = pickle.load(open("./models/" + cell + "_decoder_weights", "rb"))
 else:
@@ -391,75 +264,50 @@ if should_train:
     e = 0
     while e < nb_epoch:
         print("Total epoch " + str(e) + " ------------------------------------------------------")
-        autoencoder = keras.models.load_model("./models/main_model", custom_objects={
-            'correlation_coefficient_loss': correlation_coefficient_loss})
+        autoencoder = keras.models.load_model("./models/main_model")
         encoder = autoencoder.get_layer("encoder")
         encoder.trainable = True
-        autoencoder.compile(loss="mse", optimizer=Adam(lr=2e-5))
+        encoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+        autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
 
         if e == 0:
             print("Main autoencoder" + " =========================================")
+            #autoencoder = keras.models.load_model("default_autoencoder")
             callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-            autoencoder.fit(train_data, train_data, epochs=40, batch_size=batch_size, validation_split=0.1,
-                            callbacks=[callback])  # , validation_split=0.1, callbacks=[callback]
+            autoencoder.fit(train_data, train_data, epochs=200, batch_size=batch_size, validation_split=0.1,
+                           callbacks=[callback])  # , validation_split=0.1, callbacks=[callback]
+            autoencoder.save("default_autoencoder")
             for cell in cell_types:
                 decoder = autoencoder.get_layer("decoder")
                 cell_decoders[cell] = decoder.get_weights().copy()
                 pickle.dump(cell_decoders[cell], open("./models/" + cell + "_decoder_weights", "wb"))
                 del decoder
 
-        latent_vectors = encoder.predict(train_data[:5])
-        data = [latent_vectors[0], latent_vectors[1], latent_vectors[2], latent_vectors[3],
-                latent_vectors[4]]
-        names = ["1", "2", "3", "4", "5"]
-        fig, axes = plt.subplots(nrows=len(data), ncols=1, figsize=(14, 4))
-        fig.subplots_adjust(left=None, bottom=None, right=0.85, top=None, wspace=0.4, hspace=1.4)
-        cbar_ax = fig.add_axes([0.9, 0.15, 0.05, 0.7])
-        cmap = sns.diverging_palette(220, 20, sep=20, as_cmap=True)
-        for j, ax in enumerate(axes.flatten()):
-            if (j == 0):
-                hm = sns.heatmap(data[j].reshape(1, latent_dim), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
-                                 cbar_ax=cbar_ax, vmin=vmin, vmax=1)
-            else:
-                hm = sns.heatmap(data[j].reshape(1, latent_dim), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
-                                 cbar=False, vmin=vmin, vmax=1)
-            # ax.set_xticklabels(xlabels)
-            ax.set_ylabel(names[j], rotation=45)
-            ax.tick_params(axis='x', rotation=0)
-            ax.get_yaxis().set_label_coords(-0.08, -0.5)
-            for label in hm.get_xticklabels():
-                if np.int(label.get_text()) % 50 == 0:
-                    label.set_visible(True)
-                else:
-                    label.set_visible(False)
-
-            for label in hm.get_yticklabels():
-                label.set_visible(False)
-            # ax.set_title(names[i], x=-1.05)
-        plt.savefig("latent_vectors/latent_vector" + str(e) + ".png")
-        plt.close(None)
-
+        utils1.draw_vectors(encoder.predict(val_data), "latent_vectors/" + str(e) + "_1")
         print("Training decoders again")
         decoder = autoencoder.get_layer("decoder")
-
-        if e == nb_epoch - 1:
-            lr = 1e-5
-            encoder.trainable = False
-            decoder.trainable = True
-            autoencoder.compile(loss="mse", optimizer=Adam(lr=lr))
-
+        encoder_weights_copy = encoder.get_weights().copy()
         original_main_decoder_weights = autoencoder.get_layer("decoder").get_weights()
         cl = list(cell_types)
-        # random.shuffle(cl)
+        random.shuffle(cl)
+        if e == nb_epoch - 1:
+            print("training with frozen encoder")
+            encoder.trainable = False
+            decoder.trainable = True
+            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
         for cell in cl:
+            if cell == "A375":
+                continue
             print(cell + " =========================================")
             cell_data = np.asarray([[train_data[i], train_meta[i]] for i, p in enumerate(train_meta) if p[0] == cell])
             input_profiles = []
             output_profiles = []
             for i in range(len(cell_data)):
-                profile, median_profile, all_profiles = get_profile(train_data,
-                                                                    meta_dictionary_pert[cell_data[i][1][1]],
-                                                                    cell_data[i][1], train_mode=True)
+                #input_profiles.append(cell_data[i][0])
+                #output_profiles.append(cell_data[i][0])
+                closest, profile, median_profile, all_profiles = get_profile(train_data,
+                                                                             meta_dictionary_pert[cell_data[i][1][1]],
+                                                                             cell_data[i][1], train_data=True)
                 if median_profile is not None:
                     for p in all_profiles:
                         input_profiles.append(p)
@@ -473,18 +321,18 @@ if should_train:
                 input_profiles_val = []
                 output_profiles_val = []
                 for i in range(len(cell_data_val)):
-                    profile, median_profile, all_profiles = get_profile(val_data,
-                                                                        meta_dictionary_pert_val[
-                                                                            cell_data_val[i][1][1]],
-                                                                        cell_data_val[i][1])
+                    closest, profile, median_profile, all_profiles = get_profile(val_data,
+                                                                                 meta_dictionary_pert_val[
+                                                                                     cell_data_val[i][1][1]],
+                                                                                 cell_data_val[i][1])
                     if median_profile is not None:
                         for p in all_profiles:
                             input_profiles_val.append(p)
                             output_profiles_val.append(cell_data_val[i][0])
                 input_profiles_val = np.asarray(input_profiles_val)
                 output_profiles_val = np.asarray(output_profiles_val)
-                callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)
-                autoencoder.fit(input_profiles, output_profiles, epochs=400, batch_size=batch_size,
+                callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=40, restore_best_weights=True)
+                autoencoder.fit(input_profiles, output_profiles, epochs=2000, batch_size=batch_size,
                                 validation_data=(input_profiles_val, output_profiles_val), callbacks=[callback])
             else:
                 autoencoder.fit(input_profiles, output_profiles, epochs=2, batch_size=batch_size)
@@ -492,67 +340,68 @@ if should_train:
             cell_decoders[cell] = autoencoder.get_layer("decoder").get_weights()
             gc.collect()
         autoencoder.get_layer("decoder").set_weights(original_main_decoder_weights)
-
+        a = (encoder_weights_copy[0] == autoencoder.get_layer("encoder").get_weights()[0]).all()
+        a = a and (encoder_weights_copy[1] == autoencoder.get_layer("encoder").get_weights()[1]).all()
+        print(a)
         print("---------------------------------------------------------------\n")
         autoencoder.save("./models/main_model")
         for cell in cell_types:
             pickle.dump(cell_decoders[cell], open("./models/" + cell + "_decoder_weights", "wb"))
 
-        train_cor_sum = 0.0
-        train_count = 0
-        seen_perts = []
-        skipped = 0
-        for i in range(len(train_data)):
-            train_meta_object = train_meta[i]
-            if train_meta_object[1] in seen_perts:
-                continue
-            seen_perts.append(train_meta_object[1])
-            train_count = train_count + 1
-            closest_profile, median_profile, all_profiles = get_profile(train_data,
-                                                                        meta_dictionary_pert[train_meta_object[1]],
-                                                                        train_meta_object)
-            if closest_profile is None:
-                skipped = skipped + 1
-                continue
-
-            weights = cell_decoders[train_meta_object[0]]
-            autoencoder.get_layer("decoder").set_weights(weights)
-            decoded1 = autoencoder.predict(closest_profile)
-            train_cor_sum = train_cor_sum + stats.pearsonr(decoded1.flatten(), train_data[i].flatten())[0]
-        train_cor = train_cor_sum / train_count
-        train_perf.append(train_cor)
-        print("Training pcc: " + str(train_cor))
-        print("Evaluated:" + str(train_count))
-        print("Skipped:" + str(skipped))
+        # train_cor_sum = 0.0
+        # train_count = 0
+        # train_rmse_sum = 0.0
+        # seen_perts = []
+        # for i in range(len(train_data)):
+        #     train_meta_object = train_meta[i]
+        #     if train_meta_object[1] in seen_perts:
+        #         continue
+        #     closest, closest_profile, median_profile, all_profiles = get_profile(train_data,
+        #                                                                          meta_dictionary_pert[
+        #                                                                              train_meta_object[1]],
+        #                                                                          train_meta_object, train_data=True)
+        #     if closest_profile is None:
+        #         continue
+        #     seen_perts.append(train_meta_object[1])
+        #     train_count = train_count + 1
+        #     weights = cell_decoders[train_meta_object[0]]
+        #     autoencoder.get_layer("decoder").set_weights(weights)
+        #     decoded1 = autoencoder.predict(closest_profile)
+        #     train_cor_sum = train_cor_sum + stats.pearsonr(decoded1.flatten(), train_data[i].flatten())[0]
+        #     train_rmse_sum = train_rmse_sum + test_loss(decoded1, train_data[i])
+        # train_cor = train_cor_sum / train_count
+        # train_perf.append(train_rmse_sum / train_count)
+        # print("Training pcc: " + str(train_cor))
+        # print("Evaluated:" + str(train_count))
 
         val_cor_sum = 0.0
+        val_rmse_sum = 0.0
         val_count = 0
         seen_perts = []
-        skipped = 0
         for i in range(len(val_data)):
             val_meta_object = val_meta[i]
             if val_meta_object[1] in seen_perts:
                 continue
+            closest, closest_profile, median_profile, all_profiles = get_profile(val_data,
+                                                                                 meta_dictionary_pert_val[
+                                                                                     val_meta_object[1]],
+                                                                                 val_meta_object)
+            if closest_profile is None:
+                continue
             seen_perts.append(val_meta_object[1])
             val_count = val_count + 1
-            closest_profile, median_profile, all_profiles = get_profile(val_data,
-                                                                        meta_dictionary_pert_val[val_meta_object[1]],
-                                                                        val_meta_object)
-            if closest_profile is None:
-                skipped = skipped + 1
-                continue
-
             weights = cell_decoders[val_meta_object[0]]
             autoencoder.get_layer("decoder").set_weights(weights)
             decoded1 = autoencoder.predict(closest_profile)
             val_cor_sum = val_cor_sum + stats.pearsonr(decoded1.flatten(), val_data[i].flatten())[0]
+            val_rmse_sum = val_rmse_sum + test_loss(decoded1, train_data[i])
         val_cor = val_cor_sum / val_count
-        val_perf.append(val_cor)
+        val_rmse = val_rmse_sum / val_count
+        val_perf.append(val_rmse)
         print("Validation pcc: " + str(val_cor))
         print("Evaluated:" + str(val_count))
-        print("Skipped:" + str(skipped))
         if e == 0:
-            best_val_cor = val_cor
+            best_val_cor = val_rmse
         else:
             if val_cor < best_val_cor:
                 count = count + 1
@@ -563,7 +412,7 @@ if should_train:
                 for cell in cell_types:
                     pickle.dump(cell_decoders[cell], open("./best/" + cell + "_decoder_weights", "wb"))
 
-        if count > 4:
+        if count > 2:
             e = nb_epoch - 2
             count = 0
             autoencoder = keras.models.load_model("./best/main_model")
@@ -578,11 +427,10 @@ if should_train:
         print("---------------------------------------------------------------\n")
         e = e + 1
 
-plt.plot(train_perf, label="training")
-plt.plot(val_perf, label="validation")
-plt.savefig("learning_curve.png")
-plt.close(None)
 autoencoder = keras.models.load_model("./models/main_model")
+encoder = autoencoder.get_layer("encoder")
+decoder = autoencoder.get_layer("decoder")
+
 
 results = {}
 skipped = 0
@@ -596,20 +444,17 @@ print("Total test objects: " + str(test_num))
 worse_base = 0
 all_results = []
 closest_cor = 0
-results_groups = {}
-results_groups["trt_cp"] = {}
-results_groups["trt_sh"] = {}
-results_groups["trt_sh.cgs"] = {}
-results_groups["trt_sh.css"] = {}
-results_groups["trt_oe"] = {}
-results_groups["trt_lig"] = {}
+
+test_trt = "trt_cp"
 for i in range(test_num):
     if i % 100 == 0:
         print(str(i) + " - ", end="", flush=True)
     test_meta_object = test_meta[i]
-    closest_profile, median_profile, all_profiles = get_profile(test_data,
-                                                                meta_dictionary_pert_test[test_meta_object[1]],
-                                                                test_meta_object)
+    if test_meta_object[2] != test_trt:
+        continue
+    closest, closest_profile, median_profile, all_profiles = get_profile(test_data,
+                                                                         meta_dictionary_pert_test[test_meta_object[1]],
+                                                                         test_meta_object)
     if closest_profile is None:
         skipped = skipped + 1
         continue
@@ -625,16 +470,15 @@ for i in range(test_num):
     weights = cell_decoders[test_meta[i][0]]
     autoencoder.get_layer("decoder").set_weights(weights)
     decoded1 = autoencoder.predict(closest_profile)
-    trt_type = test_meta_object[2]
-    if trt_type not in results_groups.keys():
-        skipped = skipped + 1
-        continue
-    results = results_groups[trt_type]
+
     results["count"] = results.get("count", 0) + 1
     results["Our performance is: "] = results.get("Our performance is: ", 0) + test_loss(decoded1, test_profile)
 
     results["Our correlation is: "] = results.get("Our correlation is: ", 0) + \
                                       stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
+
+    results["Our spearman is: "] = results.get("Our spearman is: ", 0) + \
+                                      stats.spearmanr(decoded1.flatten(), test_profile.flatten())[0]
 
     decoded1 = autoencoder.predict(median_profile)
     our_data.append(decoded1.flatten())
@@ -657,6 +501,9 @@ for i in range(test_num):
     results["closest profile correlation is: "] = results.get("closest profile correlation is: ", 0) + \
                                                   stats.pearsonr(closest_profile.flatten(), test_profile.flatten())[0]
 
+    results["closest profile spearman is: "] = results.get("closest profile spearman is: ", 0) + \
+                                      stats.spearmanr(closest_profile.flatten(), test_profile.flatten())[0]
+
     results["closest profile (median profile): "] = results.get("closest profile (median profile): ", 0) + test_loss(
         median_profile, test_profile)
     results["Baseline correlation: "] = results.get("Baseline correlation: ", 0) + \
@@ -674,6 +521,9 @@ for i in range(test_num):
     if img_count < 10:
         img_count = img_count + 1
         data = [decoded1, closest_profile, decoded3]
+        all_data = np.asarray(data)
+        vmin = np.min(all_data)
+        vmax = np.max(all_data)
         names = ["ground truth", "our method", "closest profile", "cheating"]
         fig, axes = plt.subplots(nrows=len(data) + 1, ncols=1, figsize=(14, 4))
         fig.subplots_adjust(left=None, bottom=None, right=0.85, top=None, wspace=0.4, hspace=1.4)
@@ -682,10 +532,10 @@ for i in range(test_num):
         for j, ax in enumerate(axes.flatten()):
             if (j == 0):
                 hm = sns.heatmap(test_profile.reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
-                                 cbar_ax=cbar_ax, vmin=vmin, vmax=1)
+                                 cbar_ax=cbar_ax, vmin=vmin, vmax=vmax)
             else:
                 hm = sns.heatmap(data[j - 1].reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
-                                 cbar=False, vmin=vmin, vmax=1)
+                                 cbar=False, vmin=vmin, vmax=vmax)
             # ax.set_xticklabels(xlabels)
             ax.set_ylabel(names[j], rotation=45)
             ax.tick_params(axis='x', rotation=0)
@@ -703,59 +553,17 @@ for i in range(test_num):
         plt.close(None)
 print(" Done")
 
-for key1, value1 in results_groups.items():
-    if "count" not in value1.keys():
+for key, value in results.items():
+    if key == "count":
         continue
-    print(key1 + " - " + str(value1["count"]))
-    for key, value in value1.items():
-        if key == "count":
-            continue
-        print(key + str(value / value1["count"]))
-
+    print(key + str(value / results["count"]))
+print("-----------------------------------------------------------------------------------------------------------")
+print(str(results["Our performance is: "] / results["count"]) + "\t" + str(results["Our correlation is: "] / results["count"])
+            + "\t" + str(results["Our spearman is: "]/ results["count"]) + "\t" + str(results["closest profile: "] / results["count"])
+      + "\t" + str(results["closest profile correlation is: "] / results["count"]) + "\t" + str(results["closest profile spearman is: "] / results["count"]))
+print("-----------------------------------------------------------------------------------------------------------")
 # print("closest train corr:" + str(closest_cor / (test_num - skipped)))
 
 with open("all_results_per_drug.csv", 'w+') as f:
     f.write('\n'.join(all_results))
 print("skipped " + str(skipped))
-
-#
-# results = {}
-# skipped = 0
-# test_num = len(data_sh)
-# seen_perts = []
-# closest_cor = 0
-# for i in range(test_num):
-#     if i % 100 == 0:
-#         print(str(i) + " - ", end="", flush=True)
-#     test_meta_object = meta_sh[i]
-#     if test_meta_object[1] in seen_perts:
-#         skipped = skipped + 1
-#         continue
-#
-#     closest_profile, median_profile, all_profiles = get_profile(data_sh, meta_sh, test_meta_object)
-#
-#     if closest_profile is None:
-#         skipped = skipped + 1
-#         continue
-#     seen_perts.append(test_meta_object[1])
-#
-#     test_profile = np.asarray([data_sh[i]])
-#
-#     closest_cor = closest_cor + find_closest_corr(train_data, closest_profile, test_profile)
-#
-#     weights = cell_decoders[meta_sh[i][0]]
-#     autoencoder.get_layer("decoder").set_weights(weights)
-#     decoded1 = autoencoder.predict(closest_profile)
-#
-#     results["Our correlation: "] = results.get("Our correlation: ", 0) + \
-#                                    stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
-#     results["Baseline correlation: "] = results.get("Baseline correlation: ", 0) + \
-#                                     stats.pearsonr(closest_profile.flatten(), test_profile.flatten())[0]
-#
-# print(" Done")
-# for key, value in results.items():
-#     print(key + str(value / (test_num - skipped)))
-#
-# print("closest train corr:" + str(closest_cor / (test_num - skipped)))
-#
-# print("skipped " + str(skipped))

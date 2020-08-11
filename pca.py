@@ -8,6 +8,7 @@ matplotlib.use("Agg")
 
 data_folder = "/home/user/data/DeepFake/sub2/"
 os.chdir(data_folder)
+#utils1.draw_vectors(encoder.predict(data.val_data), "latent_vectors/" + str(e) + "_1")
 #antibiotics = np.loadtxt("families/antibiotics", delimiter=",")
 #cholinergic = np.loadtxt("families/cholinergic", delimiter=",")[:, 0:2]
 #modulator = np.loadtxt("families/5-HT modulator", delimiter=",")
