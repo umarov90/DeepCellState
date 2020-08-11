@@ -38,6 +38,7 @@ nb_autoencoder_epoch = 50
 nb_frozen_epoch = 200
 batch_size = 32
 use_existing = False
+use_kl = False
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 
@@ -128,10 +129,10 @@ def discriminator_loss(real_output, fake_output):
 
 # @tf.function
 def train_step(input_profiles, output_profiles, generator, discriminator, epoch):
-    gan_epochs = 4
-    gen_learning_start_epoch = 4
+    gan_epochs = 2
+    gen_learning_start_epoch = 3
     if epoch > gen_learning_start_epoch:
-        gan_epochs = 31
+        gan_epochs = 21
     for d in range(gan_epochs):
         fake_data_old = generator.predict(input_profiles)
         total = int(math.ceil(float(len(input_profiles)) / batch_size))
@@ -213,7 +214,7 @@ def get_autoencoder(input_size, latent_dim, data):
         if e == 0:
             print("Main autoencoder")
             # autoencoder = keras.models.load_model("default_autoencoder")
-            callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)
+            callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
             autoencoder.fit(data.train_data, data.train_data, epochs=nb_autoencoder_epoch, batch_size=batch_size,
                             validation_split=0.1,
                             callbacks=[callback])

@@ -3,6 +3,7 @@ from tensorflow import keras
 
 
 class VAE(keras.Model):
+
     def __init__(self, encoder, decoder, **kwargs):
         super(VAE, self).__init__(**kwargs)
         self.encoder = encoder
