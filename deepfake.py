@@ -4,7 +4,7 @@ from DL.VAE import VAE
 from DL.sampling import Sampling
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow.python.keras import regularizers
 from tensorflow.python.keras import backend as K
@@ -128,16 +128,16 @@ def discriminator_loss(real_output, fake_output):
 
 
 # @tf.function
-def train_step(input_profiles, output_profiles, generator, discriminator, epoch):
+def train_step(input_data, output_profiles, generator, discriminator, epoch):
     gan_epochs = 2
     gen_learning_start_epoch = 3
     if epoch > gen_learning_start_epoch:
         gan_epochs = 21
     for d in range(gan_epochs):
-        fake_data_old = generator.predict(input_profiles)
-        total = int(math.ceil(float(len(input_profiles)) / batch_size))
+        fake_data_old = generator.predict(input_data)
+        total = int(math.ceil(float(len(input_data)) / batch_size))
         for i in range(total):
-            input_data = input_profiles[i * batch_size:(i + 1) * batch_size]
+            input_data = input_data[i * batch_size:(i + 1) * batch_size]
             output_data = output_profiles[i * batch_size:(i + 1) * batch_size]
             with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
                 generated_data = generator(input_data, training=True)
@@ -159,7 +159,7 @@ def train_step(input_profiles, output_profiles, generator, discriminator, epoch)
             # old_weights = discriminator.get_weights()[0]
             discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
             # (discriminator.get_weights()[0] == old_weights).all()
-        fake_data = generator.predict(input_profiles)
+        fake_data = generator.predict(input_data)
         r = 0
         f_new = 0
         f_old = 0
@@ -177,7 +177,7 @@ def train_step(input_profiles, output_profiles, generator, discriminator, epoch)
         for v in a:
             if v > 0.5:
                 f_old = f_old + 1
-        print(str(d) + " discriminator " + str(r) + " : " + str(f_old) + " : " + str(f_new) + " - " + str(len(input_profiles)))
+        print(str(d) + " discriminator " + str(r) + " : " + str(f_old) + " : " + str(f_new) + " - " + str(len(input_data)))
 
 
 def generator_loss(fake_output):
@@ -256,7 +256,7 @@ def get_autoencoder(input_size, latent_dim, data):
 
             input_profiles = np.asarray(input_profiles)
             output_profiles = np.asarray(output_profiles)
-            autoencoder.get_layer("decoder").set_weights(cell_decoders[cell])
+            decoder.set_weights(cell_decoders[cell])
             if e == nb_total_epoch - 1:
                 cell_data_val = np.asarray([[data.val_data[i], data.val_meta[i]]
                                             for i, p in enumerate(data.val_meta) if p[0] == cell])
@@ -281,9 +281,10 @@ def get_autoencoder(input_size, latent_dim, data):
             tf.random.set_seed(1)
             if e != nb_total_epoch - 1:
                 discriminator.set_weights(cell_discriminators[cell])
-                train_step(input_profiles, output_profiles, autoencoder, discriminator, e)
+                z_mean, z_log_var, z = encoder.predict(input_profiles)
+                train_step(z, output_profiles, decoder, discriminator, e)
                 cell_discriminators[cell] = discriminator.get_weights()
-            cell_decoders[cell] = autoencoder.get_layer("decoder").get_weights()
+            cell_decoders[cell] = decoder.get_weights()
             gc.collect()
         print("---------------------------------------------------------------\n")
         autoencoder.save("weights/main_model")
