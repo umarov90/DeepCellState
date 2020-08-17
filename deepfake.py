@@ -4,7 +4,7 @@ from DL.VAE import VAE
 from DL.sampling import Sampling
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow.python.keras import regularizers
 from tensorflow.python.keras import backend as K
@@ -36,7 +36,7 @@ tf.keras.backend.set_floatx('float64')
 nb_total_epoch = 100
 nb_autoencoder_epoch = 100
 nb_frozen_epoch = 200
-batch_size = 32
+batch_size = 64
 use_existing = False
 use_kl = False
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
@@ -105,17 +105,17 @@ def get_best_autoencoder(input_size, latent_dim, data, test_fold, n):
 
 
 def make_discriminator_model(input_size):
-    layer_units = [512, 256]
+    layer_units = [256, 128]
     inputs = Input(shape=(input_size, 1))
     x = inputs
-    # x = Dropout(0.5, input_shape=(None, 978, 1))(x)
+    x = Dropout(0.4, input_shape=(None, 978, 1))(x)
     for f in layer_units:
         x = Dense(f)(x)
         x = LeakyReLU(alpha=0.2)(x)
 
-    # x = Dropout(0.3, input_shape=(None, input_size, layer_units[1]))(x)
+    x = Dropout(0.3, input_shape=(None, input_size, layer_units[1]))(x)
     x = Flatten()(x)
-    output = Dense(1)(x)
+    output = Dense(1)(x) #, activation="sigmoid"
     model = Model(inputs, output, name="discriminator")
     return model
 
@@ -129,7 +129,7 @@ def discriminator_loss(real_output, fake_output):
 
 # @tf.function
 def train_step(generator_input, generator_output, generator, discriminator, epoch):
-    gan_epochs = 2
+    gan_epochs = 4
     gen_learning_start_epoch = 3
     if epoch > gen_learning_start_epoch:
         gan_epochs = 21
@@ -152,7 +152,7 @@ def train_step(generator_input, generator_output, generator, discriminator, epoc
             gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
 
             generator_optimizer = tf.keras.optimizers.Adam(0.00001)  # even smaller??
-            discriminator_optimizer = tf.keras.optimizers.Adam(0.0005)
+            discriminator_optimizer = tf.keras.optimizers.Adam(0.001)
 
             if epoch > gen_learning_start_epoch and d % 5 == 0 and d != 0:
                 generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
@@ -206,17 +206,17 @@ def get_autoencoder(input_size, latent_dim, data):
             autoencoder.set_weights(autoencoder_saved.get_weights())
             autoencoder.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(learning_rate))
             del autoencoder_saved
-            discriminator = keras.models.load_model("./weights/discriminator")
+            discriminator = keras.models.load_model("weights/discriminator")
             encoder = autoencoder.get_layer("encoder")
 
         if e == 0:
             print("Main autoencoder")
-            # autoencoder = keras.models.load_model("default_autoencoder")
-            callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
-            autoencoder.fit(data.train_data, data.train_data, epochs=nb_autoencoder_epoch, batch_size=batch_size,
-                            validation_split=0.1,
-                            callbacks=[callback])
-            autoencoder.save("default_autoencoder")
+            autoencoder = keras.models.load_model("default_autoencoder")
+            # callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+            # autoencoder.fit(data.train_data, data.train_data, epochs=nb_autoencoder_epoch, batch_size=batch_size,
+            #                 validation_split=0.1,
+            #                 callbacks=[callback])
+            # autoencoder.save("default_autoencoder")
             for cell in data.cell_types:
                 decoder = autoencoder.get_layer("decoder")
                 cell_decoders[cell] = decoder.get_weights().copy()
@@ -275,11 +275,10 @@ def get_autoencoder(input_size, latent_dim, data):
                 autoencoder.fit(input_profiles, output_profiles, epochs=nb_frozen_epoch, batch_size=batch_size,
                                 validation_data=(input_profiles_val, output_profiles_val), callbacks=[callback])
             else:
-                autoencoder.fit(input_profiles, output_profiles, epochs=2, batch_size=batch_size)
+                autoencoder.fit(input_profiles, output_profiles, epochs=1, batch_size=batch_size)
             tf.random.set_seed(1)
             if e != nb_total_epoch - 1:
-                z_mean, z_log_var, z = encoder.predict(input_profiles)
-                train_step(z, output_profiles, decoder, discriminator, e)
+                train_step(input_profiles, output_profiles, autoencoder, discriminator, e)
             cell_decoders[cell] = decoder.get_weights()
             gc.collect()
         print("---------------------------------------------------------------\n")
