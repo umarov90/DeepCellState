@@ -38,7 +38,6 @@ nb_autoencoder_epoch = 100
 nb_frozen_epoch = 200
 batch_size = 64
 use_existing = False
-use_kl = False
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 
@@ -76,7 +75,7 @@ def build(input_size, latent_dim):
     outputs = x
     # outputs = Activation("tanh")(x)
     decoder = Model(latent_inputs, outputs, name="decoder")
-    #autoencoder = Model(inputs, decoder(encoder(inputs)), name="autoencoder")
+    # autoencoder = Model(inputs, decoder(encoder(inputs)), name="autoencoder")
     vae = VAE(encoder, decoder, name="autoencoder")
     return vae
 
@@ -108,14 +107,13 @@ def make_discriminator_model(input_size):
     layer_units = [256, 128]
     inputs = Input(shape=(input_size, 1))
     x = inputs
-    x = Dropout(0.4, input_shape=(None, 978, 1))(x)
+    # x = Dropout(0.4, input_shape=(None, 978, 1))(x)
     for f in layer_units:
-        x = Dense(f)(x)
-        x = LeakyReLU(alpha=0.2)(x)
+        x = Dense(f, activation="tanh")(x)
 
-    x = Dropout(0.3, input_shape=(None, input_size, layer_units[1]))(x)
+    #x = Dropout(0.4, input_shape=(None, input_size, layer_units[1]))(x)
     x = Flatten()(x)
-    output = Dense(1)(x) #, activation="sigmoid"
+    output = Dense(1)(x)  # , activation="sigmoid"
     model = Model(inputs, output, name="discriminator")
     return model
 
@@ -130,9 +128,9 @@ def discriminator_loss(real_output, fake_output):
 # @tf.function
 def train_step(generator_input, generator_output, generator, discriminator, epoch):
     gan_epochs = 4
-    gen_learning_start_epoch = 3
+    gen_learning_start_epoch = 5
     if epoch > gen_learning_start_epoch:
-        gan_epochs = 21
+        gan_epochs = 8
     for d in range(gan_epochs):
         fake_data_old = generator.predict(generator_input)
         total = int(math.ceil(float(len(generator_input)) / batch_size))
@@ -151,10 +149,10 @@ def train_step(generator_input, generator_output, generator, discriminator, epoc
             gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
             gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
 
-            generator_optimizer = tf.keras.optimizers.Adam(0.00001)  # even smaller??
+            generator_optimizer = tf.keras.optimizers.Adam(0.000001)  # even smaller??
             discriminator_optimizer = tf.keras.optimizers.Adam(0.001)
 
-            if epoch > gen_learning_start_epoch and d % 5 == 0 and d != 0:
+            if epoch > gen_learning_start_epoch and d > 4:  # and d % 3 == 0 and d != 0
                 generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
             # old_weights = discriminator.get_weights()[0]
             discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
@@ -177,7 +175,8 @@ def train_step(generator_input, generator_output, generator, discriminator, epoc
         for v in a:
             if v > 0.5:
                 f_old = f_old + 1
-        print(str(d) + " discriminator " + str(r) + " : " + str(f_old) + " : " + str(f_new) + " - " + str(len(generator_input)))
+        print(str(d) + " discriminator " + str(r) + " : " + str(f_old) + " : " + str(f_new) + " - " + str(
+            len(generator_input)))
 
 
 def generator_loss(fake_output):
@@ -185,11 +184,12 @@ def generator_loss(fake_output):
 
 
 def get_autoencoder(input_size, latent_dim, data):
-    learning_rate = 0.0001
+    learning_rate = 0.00001
     autoencoder = build(input_size, latent_dim)
     autoencoder.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(learning_rate))
     encoder = autoencoder.get_layer("encoder")
     cell_decoders = {}
+    cell_discriminators = {}
     discriminator = make_discriminator_model(input_size)
     discriminator.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(learning_rate))
     count = 0
@@ -206,13 +206,13 @@ def get_autoencoder(input_size, latent_dim, data):
             autoencoder.set_weights(autoencoder_saved.get_weights())
             autoencoder.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(learning_rate))
             del autoencoder_saved
-            discriminator = keras.models.load_model("weights/discriminator")
+            discriminator = make_discriminator_model(input_size)
             encoder = autoencoder.get_layer("encoder")
 
         if e == 0:
             print("Main autoencoder")
             autoencoder = keras.models.load_model("default_autoencoder")
-            # callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+            # callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
             # autoencoder.fit(data.train_data, data.train_data, epochs=nb_autoencoder_epoch, batch_size=batch_size,
             #                 validation_split=0.1,
             #                 callbacks=[callback])
@@ -220,6 +220,7 @@ def get_autoencoder(input_size, latent_dim, data):
             for cell in data.cell_types:
                 decoder = autoencoder.get_layer("decoder")
                 cell_decoders[cell] = decoder.get_weights().copy()
+                cell_discriminators[cell] = discriminator.get_weights().copy()
                 pickle.dump(cell_decoders[cell], open("./weights/" + cell + "_decoder_weights", "wb"))
                 del decoder
         print("Training decoders")
@@ -230,7 +231,7 @@ def get_autoencoder(input_size, latent_dim, data):
             print("freezing encoder")
             encoder.trainable = False
             decoder.trainable = True
-            autoencoder.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(learning_rate))
+            autoencoder.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(0.00001))
         for cell in cl:
             print(cell)
             tf.random.set_seed(1)
@@ -241,8 +242,8 @@ def get_autoencoder(input_size, latent_dim, data):
             input_profiles = []
             output_profiles = []
             for i in range(len(cell_data)):
-                input_profiles.append(cell_data[i][0])
-                output_profiles.append(cell_data[i][0])
+                # input_profiles.append(cell_data[i][0])
+                # output_profiles.append(cell_data[i][0])
                 closest, profile, mean_profile, all_profiles = data.get_profile(data.train_data,
                                                                                 data.meta_dictionary_pert[
                                                                                     cell_data[i][1][1]],
@@ -275,14 +276,17 @@ def get_autoencoder(input_size, latent_dim, data):
                 autoencoder.fit(input_profiles, output_profiles, epochs=nb_frozen_epoch, batch_size=batch_size,
                                 validation_data=(input_profiles_val, output_profiles_val), callbacks=[callback])
             else:
-                autoencoder.fit(input_profiles, output_profiles, epochs=1, batch_size=batch_size)
+                if e % 2 == 0:
+                    autoencoder.fit(input_profiles, output_profiles, epochs=1, batch_size=batch_size)
             tf.random.set_seed(1)
             if e != nb_total_epoch - 1:
-                train_step(input_profiles, output_profiles, autoencoder, discriminator, e)
-            cell_decoders[cell] = decoder.get_weights()
+                if e % 2 != 0:
+                    discriminator.set_weights(cell_discriminators[cell])
+                    train_step(input_profiles, output_profiles, autoencoder, discriminator, e)
+                    cell_discriminators[cell] = discriminator.get_weights().copy()
+            cell_decoders[cell] = decoder.get_weights().copy()
             gc.collect()
         print("---------------------------------------------------------------\n")
-
 
         # train_cor_sum = 0.0
         # train_count = 0
@@ -354,7 +358,6 @@ def get_autoencoder(input_size, latent_dim, data):
             shutil.move('best', 'weights')
 
         autoencoder.save("weights/main_model")
-        discriminator.save("weights/discriminator")
         for cell in data.cell_types:
             pickle.dump(cell_decoders[cell], open("weights/" + cell + "_decoder_weights", "wb"))
 

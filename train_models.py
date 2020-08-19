@@ -9,7 +9,7 @@ random.seed(0)
 np.random.seed(0)
 
 # parameters
-wdir = "sub1/"
+wdir = "sub2/"
 test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
 #               "5-HT modulator_ids", "TKI_ids", "COX inh._ids",
@@ -97,14 +97,21 @@ for test_fold in test_folds:
         results["closest profile: "] = results.get("closest profile: ", 0) + test_loss(closest_profile, test_profile)
         results["closest profile correlation is: "] = results.get("closest profile correlation is: ", 0) + \
                                                       stats.pearsonr(closest_profile.flatten(), test_profile.flatten())[0]
-        bp = stats.pearsonr(mean_profile.flatten(), test_profile.flatten())[0]
-        dp = stats.pearsonr(special_decoded.flatten(), test_profile.flatten())[0]
-        if bp < 0.1 and dp > 0.6:
-            utils1.draw_profiles(test_profile, special_decoded, closest_profile,
-                             input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
-                                 + "_" + str(dp) + "_" + str(bp) + "_" + str(test_meta_object[1]) + ".png")
-            latent_vectors_1 = encoder.predict(closest_profile)
-            utils1.draw_vectors(latent_vectors_1, "vectors/" + str(i) + ".png")
+        # bp = stats.pearsonr(mean_profile.flatten(), test_profile.flatten())[0]
+        # dp = stats.pearsonr(special_decoded.flatten(), test_profile.flatten())[0]
+        # if bp < 0.1 and dp > 0.6:
+        #     utils1.draw_profiles(test_profile, special_decoded, closest_profile,
+        #                      input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
+        #                          + "_" + str(dp) + "_" + str(bp) + "_" + str(test_meta_object[1]) + ".png")
+        #     latent_vectors_1 = encoder.predict(closest_profile)
+        #     utils1.draw_vectors(latent_vectors_1, "vectors/" + str(i) + ".png")
+
+    # family_name = "adrenergic"
+    # family = np.loadtxt("../LINCS/folds/" + family_name + "_ids", dtype='str')
+    # inds = [i for i, p in enumerate(cell_data.train_meta) if p[1] in family]
+    # z_mean, z_log_var, latent_vectors = encoder.predict(cell_data.train_data[inds])
+    # np.savetxt(family_name, latent_vectors, delimiter=',')
+    # exit()
 
     print(" Done")
     with open("log.txt", 'a+') as f:
