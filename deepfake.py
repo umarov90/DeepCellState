@@ -1,5 +1,6 @@
 import os
 
+import utils1
 from DL.VAE import VAE
 from DL.sampling import Sampling
 
@@ -104,14 +105,12 @@ def get_best_autoencoder(input_size, latent_dim, data, test_fold, n):
 
 
 def make_discriminator_model(input_size):
-    layer_units = [256, 128]
     inputs = Input(shape=(input_size, 1))
     x = inputs
     # x = Dropout(0.4, input_shape=(None, 978, 1))(x)
-    for f in layer_units:
-        x = Dense(f, activation="tanh")(x)
-
-    #x = Dropout(0.4, input_shape=(None, input_size, layer_units[1]))(x)
+    x = Dense(256, activation="tanh")(x)
+    x = Dense(128, activation="tanh")(x)
+    # x = Dropout(0.4, input_shape=(None, input_size, 128))(x)
     x = Flatten()(x)
     output = Dense(1)(x)  # , activation="sigmoid"
     model = Model(inputs, output, name="discriminator")
@@ -125,58 +124,36 @@ def discriminator_loss(real_output, fake_output):
     return total_loss
 
 
+autoencoder_optimizer = tf.keras.optimizers.Adam(0.0001)
+discriminator_optimizer = tf.keras.optimizers.Adam(0.01)
+
+
 # @tf.function
-def train_step(generator_input, generator_output, generator, discriminator, epoch):
-    gan_epochs = 4
-    gen_learning_start_epoch = 5
-    if epoch > gen_learning_start_epoch:
-        gan_epochs = 8
-    for d in range(gan_epochs):
-        fake_data_old = generator.predict(generator_input)
-        total = int(math.ceil(float(len(generator_input)) / batch_size))
-        for i in range(total):
-            input_data = generator_input[i * batch_size:(i + 1) * batch_size]
-            output_data = generator_output[i * batch_size:(i + 1) * batch_size]
-            with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-                generated_data = generator(input_data, training=True)
+def train_step(autoencoder, discriminator, pert_profiles, target_profiles, e):
+    with tf.GradientTape() as tape, tf.GradientTape() as disc_tape:
+        z_mean, z_log_var, z = autoencoder.get_layer("encoder")(pert_profiles, training=True)
+        reconstruction = autoencoder.get_layer("decoder")(z, training=True)
 
-                real_output = discriminator(output_data, training=True)
-                fake_output = discriminator(generated_data, training=True)
+        real_output = discriminator(target_profiles, training=True)
+        fake_output = discriminator(reconstruction, training=True)
 
-                gen_loss = generator_loss(fake_output)
-                disc_loss = discriminator_loss(real_output, fake_output)
+        reconstruction_loss = tf.reduce_mean(
+            tf.math.squared_difference(target_profiles, reconstruction))
+        same_pert_loss = tf.reduce_mean(tf.math.squared_difference(z[0], z[1]))
+        kl_loss = 1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
+        kl_loss = tf.reduce_mean(kl_loss)
+        kl_loss *= -0.5
+        total_loss = 0.02 * same_pert_loss + 0.0001 * kl_loss + reconstruction_loss
 
-            gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
-            gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
-
-            generator_optimizer = tf.keras.optimizers.Adam(0.000001)  # even smaller??
-            discriminator_optimizer = tf.keras.optimizers.Adam(0.001)
-
-            if epoch > gen_learning_start_epoch and d > 4:  # and d % 3 == 0 and d != 0
-                generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
-            # old_weights = discriminator.get_weights()[0]
-            discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
-            # (discriminator.get_weights()[0] == old_weights).all()
-        fake_data = generator.predict(generator_input)
-        r = 0
-        f_new = 0
-        f_old = 0
-        a = discriminator.predict(generator_output)
-        for v in a:
-            if v > 0.5:
-                r = r + 1
-
-        a = discriminator.predict(fake_data)
-        for v in a:
-            if v > 0.5:
-                f_new = f_new + 1
-
-        a = discriminator.predict(fake_data_old)
-        for v in a:
-            if v > 0.5:
-                f_old = f_old + 1
-        print(str(d) + " discriminator " + str(r) + " : " + str(f_old) + " : " + str(f_new) + " - " + str(
-            len(generator_input)))
+        gen_loss = generator_loss(fake_output)
+        if e > 6:
+            total_loss = total_loss + 0.1 * gen_loss
+        disc_loss = discriminator_loss(real_output, fake_output)
+    gradients = tape.gradient(total_loss, autoencoder.trainable_variables)
+    autoencoder_optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
+    gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
+    discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator,
+                                                discriminator.trainable_variables))
 
 
 def generator_loss(fake_output):
@@ -276,15 +253,29 @@ def get_autoencoder(input_size, latent_dim, data):
                 autoencoder.fit(input_profiles, output_profiles, epochs=nb_frozen_epoch, batch_size=batch_size,
                                 validation_data=(input_profiles_val, output_profiles_val), callbacks=[callback])
             else:
-                if e % 2 == 0:
-                    autoencoder.fit(input_profiles, output_profiles, epochs=1, batch_size=batch_size)
+                discriminator.set_weights(cell_discriminators[cell])
+                # train_step(input_profiles, output_profiles, autoencoder, discriminator, e)
+                count_im = 0
+                for pert in data.train_perts:
+                    pert_profiles = np.asarray([data.train_data[i]
+                                                for i, p in enumerate(data.train_meta) if p[1] == pert])
+                    target_profiles = [data.train_data[i]
+                                       for i, p in enumerate(data.train_meta) if p[1] == pert and p[0] == cell]
+                    while len(target_profiles) < len(pert_profiles):
+                        target_profiles.append(target_profiles[0])
+                    target_profiles = np.asarray(target_profiles)
+                    if count_im < 5:
+                        z_mean, z_log_var, z = encoder.predict(pert_profiles)
+                        utils1.draw_vectors(z, "vectors/" + pert + "_1.png")
+
+                    train_step(autoencoder, discriminator, pert_profiles, target_profiles, e)
+                    if count_im < 5:
+                        z_mean, z_log_var, z = encoder.predict(pert_profiles)
+                        utils1.draw_vectors(z, "vectors/" + pert + "_2.png")
+                    count_im = count_im + 1
             tf.random.set_seed(1)
-            if e != nb_total_epoch - 1:
-                if e % 2 != 0:
-                    discriminator.set_weights(cell_discriminators[cell])
-                    train_step(input_profiles, output_profiles, autoencoder, discriminator, e)
-                    cell_discriminators[cell] = discriminator.get_weights().copy()
             cell_decoders[cell] = decoder.get_weights().copy()
+            cell_discriminators[cell] = discriminator.get_weights().copy()
             gc.collect()
         print("---------------------------------------------------------------\n")
 
@@ -314,6 +305,8 @@ def get_autoencoder(input_size, latent_dim, data):
         val_cor_sum = 0.0
         val_count = 0
         seen_perts = []
+        disc_fake = 0
+        disc_real = 0
         for i in range(len(data.val_data)):
             val_meta_object = data.val_meta[i]
             if val_meta_object[1] in seen_perts:
@@ -332,11 +325,18 @@ def get_autoencoder(input_size, latent_dim, data):
             predictions = []
             for p in all_profiles:
                 predictions.append(autoencoder.predict(np.asarray([p])))
-            special_decoded = np.mean(np.asarray(predictions), axis=0, keepdims=True)
+            special_decoded = np.mean(np.asarray(predictions), axis=0)
             val_cor_sum = val_cor_sum + stats.pearsonr(special_decoded.flatten(), data.val_data[i].flatten())[0]
+            discriminator.set_weights(cell_discriminators[val_meta_object[0]])
+            if discriminator.predict(special_decoded)[0, 0] > 0.5:
+                disc_fake = disc_fake + 1
+            if discriminator.predict(np.asarray([data.val_data[i]]))[0, 0] > 0.5:
+                disc_real = disc_real + 1
+
         val_cor = val_cor_sum / val_count
         print("Validation pcc: " + str(val_cor))
         print("Evaluated:" + str(val_count))
+        print("Discriminator " + str(disc_fake) + " : " + str(disc_real))
         if e == 0:
             best_val_cor = val_cor
         else:

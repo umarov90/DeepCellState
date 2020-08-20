@@ -22,6 +22,7 @@ class CellData:
         for pert_id in val_perts:
             meta_dictionary_pert_val[pert_id] = [[p, i] for i, p in enumerate(val_meta) if p[1] == pert_id]
 
+        self.train_perts = train_perts
         self.test_perts = test_perts
         self.train_data = train_data
         self.test_data = test_data
@@ -45,16 +46,16 @@ class CellData:
         df = pd.read_csv(file, sep="\t")
         df.reset_index(drop=True, inplace=True)
         print("Total: " + str(df.shape))
-        # df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "HEPG2")]
+        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3")]
         print(df.groupby(['cell_id']).size())
-        df = df[(df['pert_type'] == "trt_cp") | (df['pert_type'] == "trt_sh") |
-                (df['pert_type'] == "trt_sh.cgs") |
-                (df['pert_type'] == "trt_oe") | (df['pert_type'] == "trt_lig")]
-        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") | (df['cell_id'] == "A375") |
-                (df['cell_id'] == "HT29") | (df['cell_id'] == "HA1E") | (df['cell_id'] == "YAPC") |
-                (df['cell_id'] == "HELA") | (df['cell_id'] == "HEPG2")]
+        # df = df[(df['pert_type'] == "trt_cp") | (df['pert_type'] == "trt_sh") |
+        #         (df['pert_type'] == "trt_sh.cgs") |
+        #         (df['pert_type'] == "trt_oe") | (df['pert_type'] == "trt_lig")]
+        # df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") | (df['cell_id'] == "A375") |
+        #         (df['cell_id'] == "HT29") | (df['cell_id'] == "HA1E") | (df['cell_id'] == "YAPC") |
+        #         (df['cell_id'] == "HELA")]
         # df = df[(df['pert_type'] == "trt_sh") | (df['pert_type'] == "trt_sh.cgs") | (df['pert_type'] == "trt_cp")]
-        # df = df[(df['pert_type'] == "trt_cp")]
+        df = df[(df['pert_type'] == "trt_cp")]
         print("Cell filtering: " + str(df.shape))
         df = df.groupby(['cell_id', 'pert_id']).filter(lambda x: len(x) > 1)
         print("Pert filtering: " + str(df.shape))
@@ -93,7 +94,7 @@ class CellData:
         all_pert_ids_list = list(all_pert_ids)
         shuffle(all_pert_ids_list)
 
-        test_perts = np.loadtxt("../LINCS/folds_sh+cp/" + str(test_fold), dtype='str')# _sh+cp
+        test_perts = np.loadtxt("../LINCS/folds/" + str(test_fold), dtype='str')# _sh+cp
         z = list(all_pert_ids - set(test_perts))
         shuffle(z)
         train_perts = z[:int(0.95 * len(z))]

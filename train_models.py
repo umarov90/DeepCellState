@@ -9,7 +9,7 @@ random.seed(0)
 np.random.seed(0)
 
 # parameters
-wdir = "sub2/"
+wdir = "sub1/"
 test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
 #               "5-HT modulator_ids", "TKI_ids", "COX inh._ids",
