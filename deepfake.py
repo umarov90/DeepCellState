@@ -5,7 +5,7 @@ from DL.VAE import VAE
 from DL.sampling import Sampling
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow.python.keras import regularizers
 from tensorflow.python.keras import backend as K
@@ -107,10 +107,10 @@ def get_best_autoencoder(input_size, latent_dim, data, test_fold, n):
 def make_discriminator_model(input_size):
     inputs = Input(shape=(input_size, 1))
     x = inputs
-    # x = Dropout(0.4, input_shape=(None, 978, 1))(x)
+    x = Dropout(0.4, input_shape=(None, 978, 1))(x)
     x = Dense(256, activation="tanh")(x)
     x = Dense(128, activation="tanh")(x)
-    # x = Dropout(0.4, input_shape=(None, input_size, 128))(x)
+    x = Dropout(0.4, input_shape=(None, input_size, 128))(x)
     x = Flatten()(x)
     output = Dense(1)(x)  # , activation="sigmoid"
     model = Model(inputs, output, name="discriminator")
@@ -147,7 +147,7 @@ def train_step(autoencoder, discriminator, pert_profiles, target_profiles, e):
 
         gen_loss = generator_loss(fake_output)
         if e > 4:
-            total_loss = total_loss + 0.004 * gen_loss
+            total_loss = total_loss + 0.003 * gen_loss
         disc_loss = discriminator_loss(real_output, fake_output)
     gradients = tape.gradient(total_loss, autoencoder.trainable_variables)
     autoencoder_optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
@@ -290,7 +290,7 @@ def get_autoencoder(input_size, latent_dim, data):
                                 validation_data=(input_profiles_val, output_profiles_val), callbacks=[callback])
             else:
                 discriminator.set_weights(cell_discriminators[cell])
-                for d_epochs in range(4):
+                for d_epochs in range(10):
                     total = int(math.ceil(float(len(input_profiles)) / batch_size))
                     for i in range(total):
                         input_data = input_profiles[i * batch_size:(i + 1) * batch_size]
