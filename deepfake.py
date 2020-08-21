@@ -143,11 +143,11 @@ def train_step(autoencoder, discriminator, pert_profiles, target_profiles, e):
         kl_loss = 1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
         kl_loss = tf.reduce_mean(kl_loss)
         kl_loss *= -0.5
-        total_loss = 0.1 * same_pert_loss + 0.00004 * kl_loss + reconstruction_loss
+        total_loss = 0.04 * same_pert_loss + 0.00004 * kl_loss + reconstruction_loss
 
         gen_loss = generator_loss(fake_output)
         if e > 4:
-            total_loss = total_loss + 0.01 * gen_loss
+            total_loss = total_loss + 0.004 * gen_loss
         disc_loss = discriminator_loss(real_output, fake_output)
     gradients = tape.gradient(total_loss, autoencoder.trainable_variables)
     autoencoder_optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
