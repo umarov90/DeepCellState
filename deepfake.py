@@ -125,7 +125,7 @@ def discriminator_loss(real_output, fake_output):
 
 
 autoencoder_optimizer = tf.keras.optimizers.Adam(0.0001)
-discriminator_optimizer = tf.keras.optimizers.Adam(0.01)
+discriminator_optimizer = tf.keras.optimizers.Adam(0.001)
 
 
 # @tf.function
@@ -143,11 +143,11 @@ def train_step(autoencoder, discriminator, pert_profiles, target_profiles, e):
         kl_loss = 1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
         kl_loss = tf.reduce_mean(kl_loss)
         kl_loss *= -0.5
-        total_loss = 0.02 * same_pert_loss + 0.0001 * kl_loss + reconstruction_loss
+        total_loss = 0.1 * same_pert_loss + 0.00004 * kl_loss + reconstruction_loss
 
         gen_loss = generator_loss(fake_output)
-        if e > 6:
-            total_loss = total_loss + 0.1 * gen_loss
+        if e > 4:
+            total_loss = total_loss + 0.01 * gen_loss
         disc_loss = discriminator_loss(real_output, fake_output)
     gradients = tape.gradient(total_loss, autoencoder.trainable_variables)
     autoencoder_optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
@@ -155,6 +155,19 @@ def train_step(autoencoder, discriminator, pert_profiles, target_profiles, e):
     discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator,
                                                 discriminator.trainable_variables))
 
+
+def train_step_d(autoencoder, discriminator, input_profiles, output_profiles):
+    with tf.GradientTape() as disc_tape:
+        z_mean, z_log_var, z = autoencoder.get_layer("encoder")(input_profiles, training=True)
+        reconstruction = autoencoder.get_layer("decoder")(z, training=True)
+
+        real_output = discriminator(output_profiles, training=True)
+        fake_output = discriminator(reconstruction, training=True)
+
+        disc_loss = discriminator_loss(real_output, fake_output)
+    gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
+    discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator,
+                                                discriminator.trainable_variables))
 
 def generator_loss(fake_output):
     return cross_entropy(tf.ones_like(fake_output), fake_output)
@@ -202,15 +215,39 @@ def get_autoencoder(input_size, latent_dim, data):
                 del decoder
         print("Training decoders")
         decoder = autoencoder.get_layer("decoder")
-        cl = list(data.cell_types)
-        random.shuffle(cl)
+        count_im = 0
+        for pert in data.train_perts:
+            cell = random.choice(list(data.cell_types))
+            decoder.set_weights(cell_decoders[cell])
+            discriminator.set_weights(cell_discriminators[cell])
+            pert_profiles = np.asarray([data.train_data[i]
+                                        for i, p in enumerate(data.train_meta) if p[1] == pert])
+            target_profiles = [data.train_data[i]
+                               for i, p in enumerate(data.train_meta) if p[1] == pert and p[0] == cell]
+            while len(target_profiles) < len(pert_profiles):
+                target_profiles.append(target_profiles[0])
+            target_profiles = np.asarray(target_profiles)
+            if count_im < 5:
+                z_mean, z_log_var, z = encoder.predict(pert_profiles)
+                utils1.draw_vectors(z, "vectors/" + pert + "_1.png")
+
+            train_step(autoencoder, discriminator, pert_profiles, target_profiles, e)
+            if count_im < 5:
+                z_mean, z_log_var, z = encoder.predict(pert_profiles)
+                utils1.draw_vectors(z, "vectors/" + pert + "_2.png")
+            count_im = count_im + 1
+            cell_decoders[cell] = decoder.get_weights().copy()
+            cell_discriminators[cell] = discriminator.get_weights().copy()
         if e == nb_total_epoch - 1:
             print("freezing encoder")
             encoder.trainable = False
             decoder.trainable = True
             autoencoder.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(0.00001))
+        cl = list(data.cell_types)
+        random.shuffle(cl)
         for cell in cl:
             print(cell)
+            decoder.set_weights(cell_decoders[cell])
             tf.random.set_seed(1)
             cell_data = np.asarray([[data.train_data[i], data.train_meta[i]]
                                     for i, p in enumerate(data.train_meta) if p[0] == cell])
@@ -232,7 +269,6 @@ def get_autoencoder(input_size, latent_dim, data):
 
             input_profiles = np.asarray(input_profiles)
             output_profiles = np.asarray(output_profiles)
-            decoder.set_weights(cell_decoders[cell])
             if e == nb_total_epoch - 1:
                 cell_data_val = np.asarray([[data.val_data[i], data.val_meta[i]]
                                             for i, p in enumerate(data.val_meta) if p[0] == cell])
@@ -254,28 +290,30 @@ def get_autoencoder(input_size, latent_dim, data):
                                 validation_data=(input_profiles_val, output_profiles_val), callbacks=[callback])
             else:
                 discriminator.set_weights(cell_discriminators[cell])
-                # train_step(input_profiles, output_profiles, autoencoder, discriminator, e)
-                count_im = 0
-                for pert in data.train_perts:
-                    pert_profiles = np.asarray([data.train_data[i]
-                                                for i, p in enumerate(data.train_meta) if p[1] == pert])
-                    target_profiles = [data.train_data[i]
-                                       for i, p in enumerate(data.train_meta) if p[1] == pert and p[0] == cell]
-                    while len(target_profiles) < len(pert_profiles):
-                        target_profiles.append(target_profiles[0])
-                    target_profiles = np.asarray(target_profiles)
-                    if count_im < 5:
-                        z_mean, z_log_var, z = encoder.predict(pert_profiles)
-                        utils1.draw_vectors(z, "vectors/" + pert + "_1.png")
+                for d_epochs in range(4):
+                    total = int(math.ceil(float(len(input_profiles)) / batch_size))
+                    for i in range(total):
+                        input_data = input_profiles[i * batch_size:(i + 1) * batch_size]
+                        output_data = output_profiles[i * batch_size:(i + 1) * batch_size]
+                        train_step_d(autoencoder, discriminator, input_data, output_data)
+                    cell_discriminators[cell] = discriminator.get_weights().copy()
+                    fake_data = autoencoder.predict(input_profiles)
+                    r = 0
+                    f_new = 0
+                    a = discriminator.predict(output_profiles)
+                    for v in a:
+                        if v > 0.5:
+                            r = r + 1
 
-                    train_step(autoencoder, discriminator, pert_profiles, target_profiles, e)
-                    if count_im < 5:
-                        z_mean, z_log_var, z = encoder.predict(pert_profiles)
-                        utils1.draw_vectors(z, "vectors/" + pert + "_2.png")
-                    count_im = count_im + 1
-            tf.random.set_seed(1)
+                    a = discriminator.predict(fake_data)
+                    for v in a:
+                        if v > 0.5:
+                            f_new = f_new + 1
+                    print(str(d_epochs) + " discriminator " + str(r) + " : " + str(f_new) + " - " + str(len(input_profiles)))
+            #
+            # tf.random.set_seed(1)
             cell_decoders[cell] = decoder.get_weights().copy()
-            cell_discriminators[cell] = discriminator.get_weights().copy()
+
             gc.collect()
         print("---------------------------------------------------------------\n")
 
