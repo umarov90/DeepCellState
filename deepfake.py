@@ -27,6 +27,7 @@ import numpy as np
 import random
 import shutil
 import math
+from collections import deque
 
 # tf.compat.v1.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
@@ -147,22 +148,16 @@ def train_step(autoencoder, discriminator, pert_profiles, target_profiles, e):
 
         gen_loss = generator_loss(fake_output)
         if e > 4:
-            total_loss = total_loss + 0.003 * gen_loss
-        disc_loss = discriminator_loss(real_output, fake_output)
+            total_loss = total_loss + 0.001 * gen_loss
     gradients = tape.gradient(total_loss, autoencoder.trainable_variables)
     autoencoder_optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
-    gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
-    discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator,
-                                                discriminator.trainable_variables))
 
 
-def train_step_d(autoencoder, discriminator, input_profiles, output_profiles):
+def train_step_d(discriminator, output_profiles, reconstruction_list):
     with tf.GradientTape() as disc_tape:
-        z_mean, z_log_var, z = autoencoder.get_layer("encoder")(input_profiles, training=True)
-        reconstruction = autoencoder.get_layer("decoder")(z, training=True)
 
         real_output = discriminator(output_profiles, training=True)
-        fake_output = discriminator(reconstruction, training=True)
+        fake_output = discriminator(reconstruction_list, training=True)
 
         disc_loss = discriminator_loss(real_output, fake_output)
     gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
@@ -182,6 +177,7 @@ def get_autoencoder(input_size, latent_dim, data):
     cell_discriminators = {}
     discriminator = make_discriminator_model(input_size)
     discriminator.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(learning_rate))
+    reconstruction_list = np.zeros((0, 978, 1))
     count = 0
     e = 0
     if not os.path.exists("best"):
@@ -231,7 +227,7 @@ def get_autoencoder(input_size, latent_dim, data):
                 z_mean, z_log_var, z = encoder.predict(pert_profiles)
                 utils1.draw_vectors(z, "vectors/" + pert + "_1.png")
 
-            train_step(autoencoder, discriminator, pert_profiles, target_profiles, e)
+            train_step(autoencoder, discriminator, pert_profiles, target_profiles, e, reconstruction_list)
             if count_im < 5:
                 z_mean, z_log_var, z = encoder.predict(pert_profiles)
                 utils1.draw_vectors(z, "vectors/" + pert + "_2.png")
@@ -290,12 +286,15 @@ def get_autoencoder(input_size, latent_dim, data):
                                 validation_data=(input_profiles_val, output_profiles_val), callbacks=[callback])
             else:
                 discriminator.set_weights(cell_discriminators[cell])
+                fake_data = autoencoder.predict(input_profiles)
+                reconstruction_list = np.append(reconstruction_list, fake_data, axis=0)
                 for d_epochs in range(10):
                     total = int(math.ceil(float(len(input_profiles)) / batch_size))
                     for i in range(total):
-                        input_data = input_profiles[i * batch_size:(i + 1) * batch_size]
                         output_data = output_profiles[i * batch_size:(i + 1) * batch_size]
-                        train_step_d(autoencoder, discriminator, input_data, output_data)
+                        reconstruction_data = reconstruction_list[np.random.choice(reconstruction_list.shape[0],
+                                                                                   batch_size, replace=False)]
+                        train_step_d(discriminator, output_data, reconstruction_data)
                     cell_discriminators[cell] = discriminator.get_weights().copy()
                     fake_data = autoencoder.predict(input_profiles)
                     r = 0
