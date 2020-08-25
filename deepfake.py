@@ -227,7 +227,7 @@ def get_autoencoder(input_size, latent_dim, data):
                 z_mean, z_log_var, z = encoder.predict(pert_profiles)
                 utils1.draw_vectors(z, "vectors/" + pert + "_1.png")
 
-            train_step(autoencoder, discriminator, pert_profiles, target_profiles, e, reconstruction_list)
+            train_step(autoencoder, discriminator, pert_profiles, target_profiles, e)
             if count_im < 5:
                 z_mean, z_log_var, z = encoder.predict(pert_profiles)
                 utils1.draw_vectors(z, "vectors/" + pert + "_2.png")
@@ -287,7 +287,12 @@ def get_autoencoder(input_size, latent_dim, data):
             else:
                 discriminator.set_weights(cell_discriminators[cell])
                 fake_data = autoencoder.predict(input_profiles)
-                reconstruction_list = np.append(reconstruction_list, fake_data, axis=0)
+                if len(reconstruction_list) < 10000:
+                    reconstruction_list = np.append(reconstruction_list, fake_data, axis=0)
+                else:
+                    start = random.randint(0, len(reconstruction_list) - 1 - len(fake_data))
+                    reconstruction_list[start:start + len(fake_data)] = fake_data
+                np.random.shuffle(reconstruction_list)
                 for d_epochs in range(10):
                     total = int(math.ceil(float(len(input_profiles)) / batch_size))
                     for i in range(total):
