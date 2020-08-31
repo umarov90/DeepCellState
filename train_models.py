@@ -1,22 +1,26 @@
 import os
 from scipy import stats
+
 import deepfake
+import deepfake_gan
 import utils1
 from CellData import CellData
 import numpy as np
+import pandas as pd
 import random
 random.seed(0)
 np.random.seed(0)
 
 # parameters
-wdir = "sub2/"
-test_folds = range(1, 11)
+wdir = "sub1/"
+test_folds = [1] * 9
+# test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
 #               "5-HT modulator_ids", "TKI_ids", "COX inh._ids",
 #               "histaminergic_ids", "antipsychotic_ids", "GABAergic_ids", "dopaminergic_ids"]
 # test_folds = ["final_test"]
 input_size = 978
-latent_dim = 128
+latent_dim = 64
 data_folder = "/home/user/data/DeepFake/" + wdir
 
 
@@ -26,10 +30,12 @@ def test_loss(prediction, ground_truth):
 
 os.chdir(data_folder)
 print(data_folder)
-for test_fold in test_folds:
+df = pd.read_csv("../LINCS/GSE70138_Broad_LINCS_pert_info.txt", sep="\t")
+for r, test_fold in enumerate(test_folds):
     test_fold = str(test_fold)
-    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", test_fold)
-    autoencoder, cell_decoders = deepfake.get_best_autoencoder(input_size, latent_dim, cell_data, test_fold, 1)
+    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", test_fold, (r + 1) * 0.1)
+    autoencoder, cell_decoders = deepfake.get_best_autoencoder(input_size, latent_dim,
+                                                                   cell_data, test_fold, 1)
     encoder = autoencoder.get_layer("encoder")
     results = {}
     img_count = 0
@@ -97,12 +103,13 @@ for test_fold in test_folds:
         results["closest profile: "] = results.get("closest profile: ", 0) + test_loss(closest_profile, test_profile)
         results["closest profile correlation is: "] = results.get("closest profile correlation is: ", 0) + \
                                                       stats.pearsonr(closest_profile.flatten(), test_profile.flatten())[0]
-        # bp = stats.pearsonr(mean_profile.flatten(), test_profile.flatten())[0]
-        # dp = stats.pearsonr(special_decoded.flatten(), test_profile.flatten())[0]
-        # if bp < 0.1 and dp > 0.6:
-        #     utils1.draw_profiles(test_profile, special_decoded, closest_profile,
-        #                      input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
-        #                          + "_" + str(dp) + "_" + str(bp) + "_" + str(test_meta_object[1]) + ".png")
+        bp = stats.pearsonr(mean_profile.flatten(), test_profile.flatten())[0]
+        dp = stats.pearsonr(special_decoded.flatten(), test_profile.flatten())[0]
+        if bp < 0.1 and dp > 0.6:
+            utils1.draw_profiles(test_profile, special_decoded, closest_profile,
+                             input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
+                                 + "_" + str(dp) + "_" + str(bp) + "_" +
+                                 df.query('pert_id=="'+str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0] + ".png")
         #     latent_vectors_1 = encoder.predict(closest_profile)
         #     utils1.draw_vectors(latent_vectors_1, "vectors/" + str(i) + ".png")
 

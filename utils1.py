@@ -5,26 +5,27 @@ import seaborn as sns
 matplotlib.use("Agg")
 
 
-def draw_vectors(vectors, output):
-    data = []
-    names = []
-    for i, v in enumerate(vectors):
-        data.append(v)
-        names.append(str(i))
+def draw_vectors(vectors, output, names=None):
+    if names is None:
+        names = []
+        for i in range(len(vectors)):
+            names.append(str(i))
     input_size = len(vectors[0])
-    all_data = np.asarray(data)
-    vmin = np.min(all_data)
-    vmax = np.max(all_data)
-    fig, axes = plt.subplots(nrows=len(data), ncols=1, figsize=(14, 4))
+    # all_data = np.asarray(data)
+    # vmin = np.min(all_data)
+    # vmax = np.max(all_data)
+    vmin = -1
+    vmax = 1
+    fig, axes = plt.subplots(nrows=len(vectors), ncols=1, figsize=(14, 4))
     fig.subplots_adjust(left=None, bottom=None, right=0.85, top=None, wspace=0.4, hspace=1.4)
     cbar_ax = fig.add_axes([0.9, 0.15, 0.05, 0.7])
     cmap = sns.diverging_palette(220, 20, sep=20, as_cmap=True)
     for j, ax in enumerate(axes.flatten()):
         if (j == 0):
-            hm = sns.heatmap(data[j].reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
+            hm = sns.heatmap(vectors[j].reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
                              cbar_ax=cbar_ax, vmin=vmin, vmax=vmax)
         else:
-            hm = sns.heatmap(data[j].reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
+            hm = sns.heatmap(vectors[j].reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
                              cbar=False, vmin=vmin, vmax=vmax)
         # ax.set_xticklabels(xlabels)
         ax.set_ylabel(names[0], rotation=45)
