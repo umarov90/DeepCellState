@@ -10,11 +10,11 @@ random.seed(0)
 np.random.seed(0)
 
 class CellData:
-    def __init__(self, data_file, test_fold, val_ratio):
+    def __init__(self, data_file, test_fold, tr_size):
         data, meta, all_pert_ids = self.parse_data(data_file)
         train_data, train_meta, test_data, test_meta, val_data, \
         val_meta, cell_types, train_perts, val_perts, test_perts = \
-            self.split_data(data, meta, all_pert_ids, test_fold, val_ratio)
+            self.split_data(data, meta, all_pert_ids, test_fold, tr_size)
         meta_dictionary_pert = {}
         for pert_id in train_perts:
             meta_dictionary_pert[pert_id] = [[p, i] for i, p in enumerate(train_meta) if p[1] == pert_id]
@@ -43,7 +43,7 @@ class CellData:
             matrix = np.asarray([train_data[i] for i, p in enumerate(train_meta) if p[0] == ct])
             p1 = np.mean(matrix, axis=0)
             p2 = matrix.std(axis=0)
-            utils1.draw_vectors([p1, p2], "cell_types/" + ct + "_info.png", names=["mean", "std"])
+            utils1.draw_vectors([p1, p2], "cell_types/" + ct + "_info.png", names=["Mean", "SD"])
 
         print("----------------------------------------------")
         print(train_data.shape)
@@ -93,7 +93,7 @@ class CellData:
         data = np.expand_dims(data, axis=-1)
         return data, perts, all_pert_ids
 
-    def split_data(self, data, meta, all_pert_ids, test_fold, val_ratio):
+    def split_data(self, data, meta, all_pert_ids, test_fold, tr_size):
         print(test_fold)
         cell_types = set([meta[i][0] for i, x in enumerate(meta)])
         rng_state = np.random.get_state()
@@ -106,8 +106,9 @@ class CellData:
         test_perts = np.loadtxt("../LINCS/folds/" + str(test_fold), dtype='str')# _sh+cp
         z = list(all_pert_ids - set(test_perts))
         shuffle(z)
-        train_perts = z[:int((1 - val_ratio) * len(z))]
-        val_perts = z[int((1 - val_ratio) * len(z)):]
+        train_perts = z[:tr_size]
+        val_perts = z[tr_size:]
+        val_perts = val_perts[:min(len(val_perts), int(0.1 * len(z)))]
 
         train_data = np.asarray(
             [data[i] for i, m in enumerate(meta) if m[1] in train_perts])  # and m[0] != "A375"

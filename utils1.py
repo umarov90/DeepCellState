@@ -28,7 +28,7 @@ def draw_vectors(vectors, output, names=None):
             hm = sns.heatmap(vectors[j].reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
                              cbar=False, vmin=vmin, vmax=vmax)
         # ax.set_xticklabels(xlabels)
-        ax.set_ylabel(names[0], rotation=45)
+        ax.set_ylabel(names[j], rotation=90)
         ax.tick_params(axis='x', rotation=0)
         ax.get_yaxis().set_label_coords(-0.08, -0.5)
         for label in hm.get_xticklabels():

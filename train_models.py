@@ -13,7 +13,7 @@ np.random.seed(0)
 
 # parameters
 wdir = "sub1/"
-test_folds = [1] * 9
+test_folds = [1] * 10
 # test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
 #               "5-HT modulator_ids", "TKI_ids", "COX inh._ids",
@@ -33,7 +33,12 @@ print(data_folder)
 df = pd.read_csv("../LINCS/GSE70138_Broad_LINCS_pert_info.txt", sep="\t")
 for r, test_fold in enumerate(test_folds):
     test_fold = str(test_fold)
-    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", test_fold, (r + 1) * 0.1)
+    tr_size = 10
+    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", test_fold, tr_size)
+    # with open("sizes.txt", 'a+') as f:
+    #     f.write(str(len(cell_data.train_data)))
+    #     f.write("\n")
+    # continue
     autoencoder, cell_decoders = deepfake.get_best_autoencoder(input_size, latent_dim,
                                                                    cell_data, test_fold, 1)
     encoder = autoencoder.get_layer("encoder")
@@ -138,7 +143,7 @@ for r, test_fold in enumerate(test_folds):
                   str(results["Baseline performance (mean profile): "] / results["count"])
 
     with open("final_result.tsv", 'a+') as f:
-        f.write(performance)
+        f.write(str(tr_size) + "\t" + performance)
         f.write("\n")
 
     with open("all_results", 'a+') as f:
