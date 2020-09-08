@@ -32,7 +32,7 @@ def find_closest_corr(train_data, meta, input_profile, cell):
 
 
 def read_profile(file, genes, trt):
-    df = pd.read_csv(file, sep="\t")
+    df = pd.read_csv(file, sep=",")
     profiles_trt = []
     profiles_ctrl = []
     for i in range(1, len(df.columns)):
@@ -55,7 +55,8 @@ def read_profile(file, genes, trt):
     profile = np.zeros(trt_profile.shape)
     for i in range(len(genes)):
         if not np.isnan(ctrl_profile[i]) and ctrl_profile[i] != 0:
-            profile[i] = math.log(trt_profile[i] / ctrl_profile[i])
+            if trt_profile[i] + ctrl_profile[i] > 40:
+                profile[i] = math.log(trt_profile[i] / ctrl_profile[i])
     profile[np.isnan(profile)] = 0
     # profile = 2 * (profile - np.min(profile)) / (np.max(profile) - np.min(profile)) - 1
     profile = profile / max(np.max(profile), abs(np.min(profile)))
@@ -95,16 +96,17 @@ def get_intersection(a, b, top_genes):
     return len(z)
 
 
-data_folder = "/home/user/data/DeepFake/sub_complete/"
+data_folder = "/home/user/data/DeepFake/sub2/"
 os.chdir(data_folder)
 
 genes = np.loadtxt("../gene_symbols.csv", dtype="str")
 
-df_hepg2 = read_profile("../LINCS/validation_data/HepG2_HIF1A_2.txt", genes,
-                        ["GSM1313772","GSM1313773","GSM1313774","GSM1313775"])
-df_mcf7 = read_profile("../LINCS/validation_data/MCF7_HIF1A_2.txt", genes, ["GSM71662",	"GSM71663",	"GSM71664"])
+df_hepg2 = read_profile("statins/H_Sim.csv", genes,
+                        ["T1","T2","T3","T4","T5","T6"])
+df_mcf7 = read_profile("statins/M_Sim.csv", genes, ["T1","T2","T3","T4","T5","T6"])
 baseline_corr = stats.pearsonr(df_hepg2.flatten(), df_mcf7.flatten())[0]
-cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "1")
+print("Baseline: " + str(baseline_corr))
+cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "1", 10)
 closest_cor, info = find_closest_corr(cell_data.train_data, cell_data.train_meta, df_hepg2, "HEPG2")
 print(closest_cor)
 print(info)

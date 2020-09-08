@@ -12,8 +12,8 @@ random.seed(0)
 np.random.seed(0)
 
 # parameters
-wdir = "sub1/"
-test_folds = [1] * 10
+wdir = "sub2/"
+test_folds = [1]
 # test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
 #               "5-HT modulator_ids", "TKI_ids", "COX inh._ids",
@@ -33,14 +33,14 @@ print(data_folder)
 df = pd.read_csv("../LINCS/GSE70138_Broad_LINCS_pert_info.txt", sep="\t")
 for r, test_fold in enumerate(test_folds):
     test_fold = str(test_fold)
-    tr_size = 10
+    tr_size = 1280
     cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", test_fold, tr_size)
     # with open("sizes.txt", 'a+') as f:
     #     f.write(str(len(cell_data.train_data)))
     #     f.write("\n")
     # continue
     autoencoder, cell_decoders = deepfake.get_best_autoencoder(input_size, latent_dim,
-                                                                   cell_data, test_fold, 1)
+                                                                   cell_data, test_fold, 2)
     encoder = autoencoder.get_layer("encoder")
     results = {}
     img_count = 0

@@ -9,10 +9,11 @@ os.chdir(data_folder)
 sig_info = pd.read_csv("GSE92742_Broad_LINCS_sig_info.txt", sep="\t")
 gene_info = pd.read_csv("GSE92742_Broad_LINCS_gene_info.txt", sep="\t", dtype=str)
 landmark_gene_row_ids = gene_info["pr_gene_id"][gene_info["pr_is_lm"] == "1"]
-sub_sig_info = sig_info[(sig_info["pert_type"] == "trt_oe") |
-                        (sig_info["pert_type"] == "trt_sh") |
-                        (sig_info["pert_type"] == "trt_sh.cgs") |
-                        (sig_info["pert_type"] == "trt_lig")]
+sub_sig_info = sig_info[(sig_info["pert_type"] == "trt_cp")]
+                        # (sig_info["pert_type"] == "trt_sh") |
+                        # (sig_info["pert_type"] == "trt_sh") |
+                        # (sig_info["pert_type"] == "trt_sh.cgs") |
+                        # (sig_info["pert_type"] == "trt_lig")]
 sub_sig_info.set_index("sig_id", inplace=True)
 
 gctoo = pg.parse("GSE92742_Broad_LINCS_Level5_COMPZ.MODZ_n473647x12328.gctx", cid=sub_sig_info.index.tolist(), rid=landmark_gene_row_ids)
@@ -55,4 +56,4 @@ df_data_2["pert_itime"] = gctoo.col_metadata_df["pert_itime"]
 df_data_2["pert_type"] = gctoo.col_metadata_df["pert_type"]
 
 df_data_3 = pd.concat([df_data_1, df_data_2]).drop_duplicates().reset_index(drop=True)
-df_data_3.to_csv("lincs_phase_1_2.tsv", sep='\t')
+df_data_3.to_csv("lincs_cp_phase_1_2.tsv", sep='\t')
