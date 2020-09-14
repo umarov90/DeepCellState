@@ -12,7 +12,7 @@ from scipy import stats
 from tensorflow import keras
 import pickle
 from random import randint
-
+from numpy import inf
 import utils1
 from CellData import CellData
 
@@ -43,21 +43,28 @@ def read_profile(file, genes, trt):
             else:
                 profile.append(0)
         profile = np.asarray(profile)
-        if df.columns[i] in trt:
+        # profile = 1000000 * (profile / np.max(profile))
+        if df.columns[i].startswith("T"): # in trt df[(df['Gene_Symbol'] == "HMGCR")][df.columns[i]]
             profiles_trt.append(profile)
         else:
             profiles_ctrl.append(profile)
-
+    # all_profiles = profiles_trt.copy()
+    # all_profiles.extend(profiles_ctrl)
+    # all_profiles = np.asarray(all_profiles)
+    # all_profiles = stats.zscore(all_profiles, axis=0)
+    #all_profiles[:len(profiles_trt)]
     trt_profile = np.mean(np.asarray(profiles_trt), axis=0)
     ctrl_profile = np.mean(np.asarray(profiles_ctrl), axis=0)
     utils1.draw_one_profiles([trt_profile], len(genes), file + "trt_profiles.png")
     utils1.draw_one_profiles([ctrl_profile], len(genes), file + "ctrl_profiles.png")
     profile = np.zeros(trt_profile.shape)
     for i in range(len(genes)):
-        if not np.isnan(ctrl_profile[i]) and ctrl_profile[i] != 0:
-            if trt_profile[i] + ctrl_profile[i] > 40:
-                profile[i] = math.log(trt_profile[i] / ctrl_profile[i])
-    profile[np.isnan(profile)] = 0
+        if ctrl_profile[i] != 0 and trt_profile[i] != 0:
+            if trt_profile[i] > 10 and ctrl_profile[i] > 10:
+                try:
+                    profile[i] = math.log(trt_profile[i] / ctrl_profile[i])
+                except Exception as e:
+                    print(e)
     # profile = 2 * (profile - np.min(profile)) / (np.max(profile) - np.min(profile)) - 1
     profile = profile / max(np.max(profile), abs(np.min(profile)))
     utils1.draw_one_profiles([profile], len(genes), file + "profile.png")
@@ -101,9 +108,24 @@ os.chdir(data_folder)
 
 genes = np.loadtxt("../gene_symbols.csv", dtype="str")
 
-df_hepg2 = read_profile("statins/H_Sim.csv", genes,
+df_hepg2 = read_profile("statins/H_Ato.csv", genes,
                         ["T1","T2","T3","T4","T5","T6"])
-df_mcf7 = read_profile("statins/M_Sim.csv", genes, ["T1","T2","T3","T4","T5","T6"])
+df_mcf7 = read_profile("statins/M_Ato.csv", genes, ["T1","T2","T3","T4","T5","T6"])
+df_mcf7[np.where(genes == "HMGCR")]
+profiles_H = []
+profiles_M = []
+for filename in os.listdir("statins"):
+    if filename.endswith(".csv"):
+        if filename.startswith("H"):
+            profiles_H.append(read_profile("statins/" + filename, genes, ["T1","T2","T3","T4","T5","T6"]))
+        if filename.startswith("M"):
+            profiles_M.append(read_profile("statins/" + filename, genes, ["T1","T2","T3","T4","T5","T6"]))
+
+profiles_H = np.asarray(profiles_H)
+profiles_M = np.asarray(profiles_M)
+
+utils1.draw_dist(profiles_M[profiles_M != 0], "mcf7_statin_dist.png")
+utils1.draw_dist(profiles_H[profiles_H != 0], "hepg2_statin_dist.png")
 baseline_corr = stats.pearsonr(df_hepg2.flatten(), df_mcf7.flatten())[0]
 print("Baseline: " + str(baseline_corr))
 cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "1", 10)
@@ -119,13 +141,11 @@ cell_decoders = {}
 for cell in cell_data.cell_types:
     cell_decoders[cell] = pickle.load(open("best_autoencoder_1/" + cell + "_decoder_weights", "rb"))
 
-weights = cell_decoders["MCF7"]
-autoencoder.get_layer("decoder").set_weights(weights)
+autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
 decoded = autoencoder.predict(np.asarray([df_hepg2]))
 
 decoded = decoded.flatten()
-df_mcf7 = df_mcf7.flatten()
 
-get_intersection(decoded, df_mcf7, 100)
+print(get_intersection(decoded, df_mcf7, 50))
 corr = stats.pearsonr(decoded, df_mcf7.flatten())[0]
 print(corr)

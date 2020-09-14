@@ -40,7 +40,7 @@ for r, test_fold in enumerate(test_folds):
     #     f.write("\n")
     # continue
     autoencoder, cell_decoders = deepfake.get_best_autoencoder(input_size, latent_dim,
-                                                                   cell_data, test_fold, 2)
+                                                                   cell_data, test_fold, 1)
     encoder = autoencoder.get_layer("encoder")
     results = {}
     img_count = 0
@@ -110,11 +110,15 @@ for r, test_fold in enumerate(test_folds):
                                                       stats.pearsonr(closest_profile.flatten(), test_profile.flatten())[0]
         bp = stats.pearsonr(mean_profile.flatten(), test_profile.flatten())[0]
         dp = stats.pearsonr(special_decoded.flatten(), test_profile.flatten())[0]
-        if bp < 0.1 and dp > 0.6:
+        if bp < 0.3 and dp > 0.7:
             utils1.draw_profiles(test_profile, special_decoded, closest_profile,
                              input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
                                  + "_" + str(dp) + "_" + str(bp) + "_" +
                                  df.query('pert_id=="'+str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0] + ".png")
+            utils1.draw_scatter_profiles(test_profile, special_decoded, closest_profile,
+                              "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
+                                 + "_" + str(dp) + "_" + str(bp) + "_" +
+                                 df.query('pert_id=="'+str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0] + "_scatter.png")
         #     latent_vectors_1 = encoder.predict(closest_profile)
         #     utils1.draw_vectors(latent_vectors_1, "vectors/" + str(i) + ".png")
 

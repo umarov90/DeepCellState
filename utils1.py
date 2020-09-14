@@ -147,3 +147,20 @@ def draw_one_profiles(profiles, input_size, output_file):
         # ax.set_title(names[i], x=-1.05)
     plt.savefig(output_file)
     plt.close(None)
+
+
+def draw_scatter_profiles(test_profile, decoded, closest_profile, output_file):
+    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5, 10))
+    # fig.subplots_adjust(left=None, bottom=None, right=0.85, top=None, wspace=0.4, hspace=1.4)
+    sns.scatterplot(x=decoded.flatten(), y=test_profile.flatten(), ax=axes[0])
+    axes[0].set_title("DeepCellState")
+    sns.scatterplot(x=closest_profile.flatten(), y=test_profile.flatten(), ax=axes[1])
+    axes[1].set_title("Baseline")
+    plt.savefig(output_file)
+    plt.close(None)
+
+
+def draw_dist(matrix, output_file):
+    sns.distplot(matrix.flatten())
+    plt.savefig(output_file)
+    plt.close(None)

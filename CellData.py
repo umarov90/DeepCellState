@@ -44,6 +44,7 @@ class CellData:
             p1 = np.mean(matrix, axis=0)
             p2 = matrix.std(axis=0)
             utils1.draw_vectors([p1, p2], "cell_types/" + ct + "_info.png", names=["Mean", "SD"])
+            utils1.draw_dist(matrix, "cell_types/" + ct + "_dist.png")
 
         print("----------------------------------------------")
         print(train_data.shape)
@@ -106,23 +107,23 @@ class CellData:
         all_pert_ids_list = list(all_pert_ids)
         shuffle(all_pert_ids_list)
 
-        # test_perts = np.loadtxt("../LINCS/folds/" + str(test_fold), dtype='str')# _sh+cp
-        test_perts = np.asarray([])
-        # z = list(all_pert_ids) # - set(test_perts)
-        # shuffle(z)
-        train_perts = all_pert_ids_list[:int(0.90 * len(all_pert_ids_list))]
-        val_perts = all_pert_ids_list[int(0.90 * len(all_pert_ids_list)):]
+        test_perts = np.loadtxt("../LINCS/folds/" + str(test_fold), dtype='str')# _sh+cp
+        # test_perts = np.asarray([])
+        z = list(all_pert_ids - set(test_perts))
+        shuffle(z)
+        train_perts = all_pert_ids_list[:int(0.90 * len(z))]
+        val_perts = all_pert_ids_list[int(0.90 * len(z)):]
         #val_perts = val_perts[:min(len(val_perts), int(0.1 * len(z)))]
 
         train_data = np.asarray(
             [data[i] for i, m in enumerate(meta) if m[1] in train_perts])  # and m[0] != "A375"
-        #test_data = np.asarray([data[i] for i, m in enumerate(meta) if m[1] in test_perts])
-        test_data = np.asarray([])
+        test_data = np.asarray([data[i] for i, m in enumerate(meta) if m[1] in test_perts])
+        #test_data = np.asarray([])
         val_data = np.asarray([data[i] for i, m in enumerate(meta) if m[1] in val_perts])
         train_meta = np.asarray(
             [m for i, m in enumerate(meta) if m[1] in train_perts])  # and m[0] != "A375"
-        #test_meta = np.asarray([m for i, m in enumerate(meta) if m[1] in test_perts])
-        test_meta = np.asarray([])
+        test_meta = np.asarray([m for i, m in enumerate(meta) if m[1] in test_perts])
+        #test_meta = np.asarray([])
         val_meta = np.asarray([m for i, m in enumerate(meta) if m[1] in val_perts])
 
         return train_data, train_meta, test_data, test_meta, val_data, val_meta, cell_types, train_perts, val_perts, test_perts

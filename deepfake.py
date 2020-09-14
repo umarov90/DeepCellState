@@ -34,7 +34,7 @@ nb_total_epoch = 100
 nb_autoencoder_epoch = 200
 nb_frozen_epoch = 200
 batch_size = 32
-use_existing = False
+use_existing = True
 
 
 def build(input_size, latent_dim):
