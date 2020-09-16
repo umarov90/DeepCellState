@@ -108,65 +108,101 @@ def get_intersection(a, b, top_genes):
     return len(z)
 
 
+def to_profile(df_data, cell, pert):
+    indexes_trt = [i for i in range(len(meta)) if meta[i][0] == cell and
+                   meta[i][1] == pert and not meta[i][2].startswith("0")]
+    indexes_ctrl = [i for i in range(len(meta)) if meta[i][0] == cell and
+                    meta[i][1] == pert and meta[i][2].startswith("0")]
+
+    trt_data = df_data.iloc[:, indexes_trt].mean(axis=1)[genes].values
+    ctrl_data = df_data.iloc[:, indexes_ctrl].mean(axis=1)[genes].values
+    profile = np.zeros(978)
+    for i in range(len(profile)):
+        if not np.isnan(trt_data[i]) and not np.isnan(ctrl_data[i]):
+            try:
+                profile[i] = math.log(trt_data[i] / ctrl_data[i])
+            except Exception as e:
+                print(e)
+    profile = profile / max(np.max(profile), abs(np.min(profile)))
+    # utils1.draw_one_profiles([profile], len(genes), file + "profile.png")
+    profile = np.expand_dims(profile, axis=-1)
+    return profile
+
+
 data_folder = "/home/user/data/DeepFake/sub2/"
 os.chdir(data_folder)
 
 genes = np.loadtxt("../gene_symbols.csv", dtype="str")
+input_file = "../data/GSE116436_series_matrix.txt"
+df_data = pd.read_csv(input_file, sep="\t", comment='!', index_col="ID_REF")
+df_gpl = pd.read_csv("../data/GPL571-17391.txt", sep="\t", comment='#', index_col="ID")
+affy_dict = df_gpl["Gene Symbol"].to_dict()
+missed = 0
+count = 0
+seen = []
+for key, value in affy_dict.items():
+    names = str(value).split(" /// ")
+    for n in names:
+        if n in genes:
+            if n not in seen:
+                count = count + 1
+                seen.append(n)
+            affy_dict[key] = n
+            break
+    else:
+        missed = missed + 1
+        affy_dict[key] = min(names, key=len)
+s = df_data.index.to_series()
+df_data.index = s.map(affy_dict).fillna(s)
+df_data = df_data[df_data.index.isin(genes)]
+df_data = df_data.groupby(df_data.index).sum()
 
-if os.path.isfile("input_tr.p"):
-    input_tr = pickle.load(open("input_tr.p", "rb"))
-    output_tr = pickle.load(open("output_tr.p", "rb"))
-else:
-    input_tr = np.asarray([read_profile("statins/H_Flu.csv"), read_profile("statins/H_Ato.csv"),
-                           read_profile("statins/H_Ros.csv"), read_profile("statins/H_Sim.csv")])
-    output_tr = np.asarray([read_profile("statins/M_Flu.csv"), read_profile("statins/M_Ato.csv"),
-                            read_profile("statins/M_Ros.csv"), read_profile("statins/M_Sim.csv")])
-    pickle.dump(input_tr, open("input_tr.p", "wb"))
-    pickle.dump(output_tr, open("output_tr.p", "wb"))
+with open(input_file, 'r') as file:
+    for line in file:
+        if line.startswith("!Sample_title"):
+            meta = line
+meta = meta.replace('\n', '').replace('"', '')
+meta = meta.split("\t")
+del meta[0]
+pert_ids = []
+for i in range(len(meta)):
+    meta[i] = meta[i].split("_")
+    if meta[i][1] not in pert_ids:
+        pert_ids.append(meta[i][1])
 
-test_index = 3
-df_hepg2 = input_tr[test_index]
-df_mcf7 = output_tr[test_index]
-input_tr = np.delete(input_tr, test_index, axis=0)
-output_tr = np.delete(output_tr, test_index, axis=0)
-# df_mcf7[np.where(genes == "HMGCR")]
-# profiles_H = []
-# profiles_M = []
-# for filename in os.listdir("statins"):
-#     if filename.endswith(".csv"):
-#         if filename.startswith("H"):
-#             profiles_H.append(read_profile("statins/" + filename))
-#         if filename.startswith("M"):
-#             profiles_M.append(read_profile("statins/" + filename))
-#
-# profiles_H = np.asarray(profiles_H)
-# profiles_M = np.asarray(profiles_M)
-# utils1.draw_dist(profiles_M[profiles_M != 0], "mcf7_statin_dist.png")
-# utils1.draw_dist(profiles_H[profiles_H != 0], "hepg2_statin_dist.png")
-baseline_corr = stats.pearsonr(df_hepg2.flatten(), df_mcf7.flatten())[0]
-print("Baseline: " + str(baseline_corr))
+
 cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "1", 10)
-closest_cor, info = find_closest_corr(cell_data.train_data, cell_data.train_meta, df_hepg2, "HEPG2")
-print(closest_cor)
-print(info)
-closest_cor, info = find_closest_corr(cell_data.train_data, cell_data.train_meta, df_mcf7, "MCF7")
-print(closest_cor)
-print(info)
-
 autoencoder = keras.models.load_model("best_autoencoder_1/main_model")
 cell_decoders = {}
 for cell in cell_data.cell_types:
     cell_decoders[cell] = pickle.load(open("best_autoencoder_1/" + cell + "_decoder_weights", "rb"))
 
 autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
-decoded = autoencoder.predict(np.asarray([df_hepg2]))
+# print("Baseline: " + str(baseline_corr))
 
-decoded = decoded.flatten()
+# closest_cor, info = find_closest_corr(cell_data.train_data, cell_data.train_meta, df_pc3, "PC3")
+# print(closest_cor)
+# print(info)
+# closest_cor, info = find_closest_corr(cell_data.train_data, cell_data.train_meta, df_mcf7, "MCF7")
+# print(closest_cor)
+# print(info)
 
-print(get_intersection(decoded, df_mcf7, 50))
-corr = stats.pearsonr(decoded, df_mcf7.flatten())[0]
-print(corr)
+baseline_corr = 0
+our_corr = 0
+for p in pert_ids:
+    df_mcf7 = to_profile(df_data, "MCF7", p)
+    df_pc3 = to_profile(df_data, "PC-3", p)
+    baseline_corr = baseline_corr + stats.pearsonr(df_pc3.flatten(), df_mcf7.flatten())[0]
+    decoded = autoencoder.predict(np.asarray([df_pc3]))
+    # print(get_intersection(decoded, df_mcf7, 50))
+    our_corr = our_corr + stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0]
+    print(p + ":" + str(stats.pearsonr(df_pc3.flatten(), df_mcf7.flatten())[0])
+          + " : " + str(stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0]))
 
+baseline_corr = baseline_corr / len(pert_ids)
+our_corr = our_corr / len(pert_ids)
+print("Baseline: " + str(baseline_corr))
+print("DeepCellState: " + str(our_corr))
 # autoencoder.fit(input_tr, output_tr, epochs=30, batch_size=1)
 # decoded = autoencoder.predict(np.asarray([df_hepg2]))
 # print(get_intersection(decoded.flatten(), df_mcf7, 50))

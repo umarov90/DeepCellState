@@ -34,7 +34,7 @@ df = pd.read_csv("../LINCS/GSE70138_Broad_LINCS_pert_info.txt", sep="\t")
 for r, test_fold in enumerate(test_folds):
     test_fold = str(test_fold)
     tr_size = 1280
-    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", test_fold, tr_size)
+    cell_data = CellData("../LINCS/lincs_cp_phase_1_2.tsv", test_fold, tr_size)
     # with open("sizes.txt", 'a+') as f:
     #     f.write(str(len(cell_data.train_data)))
     #     f.write("\n")
