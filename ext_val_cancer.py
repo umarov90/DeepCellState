@@ -19,6 +19,13 @@ from numpy import inf
 import utils1
 from CellData import CellData
 from tensorflow.python.keras import backend as K
+import tensorflow as tf
+
+
+tf.compat.v1.disable_eager_execution()
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
+config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 
 def find_closest_corr(train_data, meta, input_profile, cell):
@@ -171,12 +178,11 @@ for i in range(len(meta)):
         pert_ids.append(meta[i][1])
 
 
-cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "1", 10)
+#cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "1", 10)
 autoencoder = keras.models.load_model("best_autoencoder_1/main_model")
 cell_decoders = {}
-for cell in cell_data.cell_types:
-    cell_decoders[cell] = pickle.load(open("best_autoencoder_1/" + cell + "_decoder_weights", "rb"))
-
+cell_decoders["MCF7"] = pickle.load(open("best_autoencoder_1/" + "MCF7" + "_decoder_weights", "rb"))
+cell_decoders["PC3"] = pickle.load(open("best_autoencoder_1/" + "PC3" + "_decoder_weights", "rb"))
 autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
 # print("Baseline: " + str(baseline_corr))
 
@@ -189,9 +195,17 @@ autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
 
 baseline_corr = 0
 our_corr = 0
+input_tr = []
+output_tr = []
 for p in pert_ids:
     df_mcf7 = to_profile(df_data, "MCF7", p)
     df_pc3 = to_profile(df_data, "PC-3", p)
+    if p != "5-Azacytidine":
+        input_tr.append(df_pc3)
+        output_tr.append(df_mcf7)
+    else:
+        test_input = df_pc3
+        test_output = df_mcf7
     baseline_corr = baseline_corr + stats.pearsonr(df_pc3.flatten(), df_mcf7.flatten())[0]
     decoded = autoencoder.predict(np.asarray([df_pc3]))
     # print(get_intersection(decoded, df_mcf7, 50))
@@ -203,16 +217,25 @@ baseline_corr = baseline_corr / len(pert_ids)
 our_corr = our_corr / len(pert_ids)
 print("Baseline: " + str(baseline_corr))
 print("DeepCellState: " + str(our_corr))
-# autoencoder.fit(input_tr, output_tr, epochs=30, batch_size=1)
-# decoded = autoencoder.predict(np.asarray([df_hepg2]))
-# print(get_intersection(decoded.flatten(), df_mcf7, 50))
-# corr = stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0]
-# print(corr)
-#
-# autoencoder = deepfake.build(978, 64)
-# autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-# autoencoder.fit(input_tr, output_tr, epochs=20, batch_size=1)
-# decoded = autoencoder.predict(np.asarray([df_hepg2]))
-# print(get_intersection(decoded.flatten(), df_mcf7, 50))
-# corr = stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0]
-# print(corr)
+
+decoded = autoencoder.predict(np.asarray([test_input]))
+print(get_intersection(decoded.flatten(), test_output, 50))
+corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
+print("without training: " + str(corr))
+
+input_tr = np.asarray(input_tr)
+output_tr = np.asarray(output_tr)
+# autoencoder.trainable = True
+autoencoder.fit(input_tr, output_tr, epochs=10, batch_size=4)
+decoded = autoencoder.predict(np.asarray([test_input]))
+print(get_intersection(decoded.flatten(), test_output, 50))
+corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
+print(corr)
+
+autoencoder = deepfake.build(978, 64)
+autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+autoencoder.fit(input_tr, output_tr, epochs=30, batch_size=4)
+decoded = autoencoder.predict(np.asarray([test_input]))
+print(get_intersection(decoded.flatten(), test_output, 50))
+corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
+print(corr)

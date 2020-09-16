@@ -180,6 +180,9 @@ def get_autoencoder(input_size, latent_dim, data):
             cell_decoders[cell] = autoencoder.get_layer("decoder").get_weights()
             gc.collect()
         print("---------------------------------------------------------------\n")
+        encoder.trainable = True
+        decoder.trainable = True
+        autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
         autoencoder.save("weights/main_model")
         for cell in data.cell_types:
             pickle.dump(cell_decoders[cell], open("weights/" + cell + "_decoder_weights", "wb"))
