@@ -56,7 +56,7 @@ class CellData:
         df = pd.read_csv(file, sep="\t")
         df.reset_index(drop=True, inplace=True)
         print("Total: " + str(df.shape))
-        # df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "HEPG2") | (df['cell_id'] == "PC3")]
+        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "HEPG2") | (df['cell_id'] == "PC3")]
         print(df.groupby(['cell_id']).size())
         # df = df[(df['pert_type'] == "trt_cp") | (df['pert_type'] == "trt_sh") |
         #         (df['pert_type'] == "trt_sh.cgs") |
@@ -67,6 +67,10 @@ class CellData:
         # df = df[(df['pert_type'] == "trt_sh") | (df['pert_type'] == "trt_sh.cgs") | (df['pert_type'] == "trt_cp")]
         df = df[(df['pert_type'] == "trt_cp")]
         print("Cell filtering: " + str(df.shape))
+        # df.pert_itime.value_counts()
+        df = df[(df['pert_itime'] == "24 h")]
+
+        print("time filtering: " + str(df.shape))
         print(df.groupby(['cell_id']).size())
         df = df.groupby(['cell_id', 'pert_id', 'pert_type'], as_index=False).mean()
         print("Merging: " + str(df.shape))

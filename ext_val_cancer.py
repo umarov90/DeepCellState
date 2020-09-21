@@ -54,7 +54,7 @@ def read_profile(file):
             else:
                 profile.append(0)
         profile = np.asarray(profile)
-        profile = profile + 10
+        profile = profile + 20
         # profile = 1000000 * (profile / np.max(profile))
         if df.columns[i].startswith("T"):  # in trt df[(df['Gene_Symbol'] == "HMGCR")][df.columns[i]]
             profiles_trt.append(profile)
@@ -117,7 +117,7 @@ def get_intersection(a, b, top_genes):
 
 def to_profile(df_data, cell, pert):
     indexes_trt = [i for i in range(len(meta)) if meta[i][0] == cell and
-                   meta[i][1] == pert and not meta[i][2].startswith("0")]
+                   meta[i][1] == pert and not meta[i][2].startswith("0") and meta[i][3] == "24h"]
     indexes_ctrl = [i for i in range(len(meta)) if meta[i][0] == cell and
                     meta[i][1] == pert and meta[i][2].startswith("0")]
 
@@ -200,7 +200,7 @@ output_tr = []
 for p in pert_ids:
     df_mcf7 = to_profile(df_data, "MCF7", p)
     df_pc3 = to_profile(df_data, "PC-3", p)
-    if p != "5-Azacytidine":
+    if p != "cisplatin":
         input_tr.append(df_pc3)
         output_tr.append(df_mcf7)
     else:
@@ -223,19 +223,19 @@ print(get_intersection(decoded.flatten(), test_output, 50))
 corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
 print("without training: " + str(corr))
 
-input_tr = np.asarray(input_tr)
-output_tr = np.asarray(output_tr)
-# autoencoder.trainable = True
-autoencoder.fit(input_tr, output_tr, epochs=10, batch_size=4)
-decoded = autoencoder.predict(np.asarray([test_input]))
-print(get_intersection(decoded.flatten(), test_output, 50))
-corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
-print(corr)
-
-autoencoder = deepfake.build(978, 64)
-autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-autoencoder.fit(input_tr, output_tr, epochs=30, batch_size=4)
-decoded = autoencoder.predict(np.asarray([test_input]))
-print(get_intersection(decoded.flatten(), test_output, 50))
-corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
-print(corr)
+# input_tr = np.asarray(input_tr)
+# output_tr = np.asarray(output_tr)
+# # autoencoder.trainable = True
+# autoencoder.fit(input_tr, output_tr, epochs=4, batch_size=4)
+# decoded = autoencoder.predict(np.asarray([test_input]))
+# print(get_intersection(decoded.flatten(), test_output, 50))
+# corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
+# print(corr)
+#
+# autoencoder = deepfake.build(978, 64)
+# autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+# autoencoder.fit(input_tr, output_tr, epochs=30, batch_size=4)
+# decoded = autoencoder.predict(np.asarray([test_input]))
+# print(get_intersection(decoded.flatten(), test_output, 50))
+# corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
+# print(corr)
