@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.manifold import TSNE
 matplotlib.use("Agg")
 
 data_folder = "/home/user/data/DeepFake/sub2/"
@@ -35,9 +36,10 @@ colors.extend(["adrenergic"]*len(adrenergic))
 # colors.extend(["antipsychotic"]*len(antipsychotic))
 # colors.extend(["histaminergic"]*len(histaminergic))
 
-pca = PCA(n_components=2)
 data = np.vstack([antibiotics, cholinergic, modulator, adrenergic])
-A = pca.fit_transform(data)
+# pca = PCA(n_components=2)
+# A = pca.fit_transform(data)
+A = TSNE(n_components=2, perplexity=5, early_exaggeration=2).fit_transform(data)
 
 sns.scatterplot(x=A[:, 0], y=A[:, 1], hue=colors)
 plt.savefig("drugs.png")

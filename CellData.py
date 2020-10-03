@@ -39,12 +39,18 @@ class CellData:
         self.meta_dictionary_pert_test = meta_dictionary_pert_test
         self.meta_dictionary_pert_val = meta_dictionary_pert_val
 
-        for ct in cell_types:
-            matrix = np.asarray([train_data[i] for i, p in enumerate(train_meta) if p[0] == ct])
-            p1 = np.mean(matrix, axis=0)
-            p2 = matrix.std(axis=0)
-            utils1.draw_vectors([p1, p2], "cell_types/" + ct + "_info.png", names=["Mean", "SD"])
-            utils1.draw_dist(matrix, "cell_types/" + ct + "_dist.png")
+        # perts = np.loadtxt("cluster_perts.csv", delimiter=",", dtype=np.str)
+        # matrix = np.asarray([train_data[i] for i, p in enumerate(train_meta) if p[1] in perts])
+        # p1 = np.mean(matrix, axis=0)
+        # p2 = matrix.std(axis=0)
+        # utils1.draw_vectors([p1, p2], "cluster_1_info.png", names=["Mean", "SD"])
+
+        # for ct in cell_types:
+        #     matrix = np.asarray([train_data[i] for i, p in enumerate(train_meta) if p[0] == ct])
+        #     p1 = np.mean(matrix, axis=0)
+        #     p2 = matrix.std(axis=0)
+        #     utils1.draw_vectors([p1, p2], "cell_types/" + ct + "_info.png", names=["Mean", "SD"])
+        #     utils1.draw_dist(matrix, "cell_types/" + ct + "_dist.png")
 
         print("----------------------------------------------")
         print(train_data.shape)
@@ -56,7 +62,7 @@ class CellData:
         df = pd.read_csv(file, sep="\t")
         df.reset_index(drop=True, inplace=True)
         print("Total: " + str(df.shape))
-        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "HEPG2") | (df['cell_id'] == "PC3")]
+        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3")]
         print(df.groupby(['cell_id']).size())
         # df = df[(df['pert_type'] == "trt_cp") | (df['pert_type'] == "trt_sh") |
         #         (df['pert_type'] == "trt_sh.cgs") |
@@ -67,10 +73,14 @@ class CellData:
         # df = df[(df['pert_type'] == "trt_sh") | (df['pert_type'] == "trt_sh.cgs") | (df['pert_type'] == "trt_cp")]
         df = df[(df['pert_type'] == "trt_cp")]
         print("Cell filtering: " + str(df.shape))
+        # df['pert_idose'] = df['pert_idose'].str.replace(' um','')
+        # df['pert_idose'] = df['pert_idose'].astype(float)
         # df.pert_itime.value_counts()
+        # df.pert_idose.value_counts()
         df = df[(df['pert_itime'] == "24 h")]
-
         print("time filtering: " + str(df.shape))
+        # df = df[(df['pert_idose'] < 4)]
+        # print("dose filtering: " + str(df.shape))
         print(df.groupby(['cell_id']).size())
         df = df.groupby(['cell_id', 'pert_id', 'pert_type'], as_index=False).mean()
         print("Merging: " + str(df.shape))
@@ -147,6 +157,13 @@ class CellData:
 
     def get_profile_cell(self, data, meta_data, cell):
         pert_list = [p[1] for p in meta_data if p[0][0] == cell]
+        if len(pert_list) > 0:
+            return data[pert_list]
+        else:
+            return None
+
+    def get_profile_cell_pert(self, data, meta_data, cell, pert):
+        pert_list = [i for i, p in enumerate(meta_data) if p[0] == cell and p[1] == pert]
         if len(pert_list) > 0:
             return data[pert_list]
         else:

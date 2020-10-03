@@ -15,6 +15,7 @@ from tensorflow.python.keras.layers import Concatenate
 from tensorflow.python.keras.layers import Add
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.layers import Activation
+from tensorflow.keras.layers import BatchNormalization
 from tensorflow.python.keras.optimizers import Adam
 from tensorflow import keras
 from scipy import stats
@@ -31,19 +32,19 @@ assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
 config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 nb_total_epoch = 100
-nb_autoencoder_epoch = 200
-nb_frozen_epoch = 200
-batch_size = 32
-use_existing = False
+nb_autoencoder_epoch = 100
+nb_frozen_epoch = 100
+batch_size = 128
+use_existing = True
 
 
 def build(input_size, latent_dim):
-    layer_units = [256, 128]
+    layer_units = [128, 64]
     input_shape = (input_size, 1)
-    drop_rate = 0.8
+    drop_rate = 0.5
     inputs = Input(shape=input_shape)
     x = inputs
-    xd = Dropout(0.5, input_shape=(None, 978, 1))(x)
+    xd = Dropout(0.3, input_shape=(None, 978, 1))(x)
     x = xd
     for f in layer_units:
         x = Dense(f)(x)
@@ -52,7 +53,7 @@ def build(input_size, latent_dim):
     x = Dropout(drop_rate, input_shape=(None, input_size, layer_units[1]))(x)
     shape = K.int_shape(x)
     x = Flatten()(x)
-    latent = Dense(latent_dim)(x)
+    latent = Dense(latent_dim, activity_regularizer=regularizers.l1(10e-5))(x)
     encoder = Model(inputs, latent, name="encoder")
     latent_inputs = Input(shape=(latent_dim,))
     xd_input = Input(shape=input_shape)
@@ -248,7 +249,7 @@ def get_autoencoder(input_size, latent_dim, data):
                 for cell in data.cell_types:
                     pickle.dump(cell_decoders[cell], open("best/" + cell + "_decoder_weights", "wb"))
 
-        if count > 4:
+        if count > 3:
             e = nb_total_epoch - 2
             count = 0
             for cell in data.cell_types:

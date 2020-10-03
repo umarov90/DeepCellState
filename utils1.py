@@ -1,7 +1,11 @@
+import os
+import pickle
+
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import pandas as pd
 matplotlib.use("Agg")
 
 
@@ -164,3 +168,33 @@ def draw_dist(matrix, output_file):
     sns.distplot(matrix.flatten())
     plt.savefig(output_file)
     plt.close(None)
+
+
+data_folder = "/home/user/data/DeepFake/sub2/"
+os.chdir(data_folder)
+# bdata = pickle.load(open("bdata.p", "rb"))
+# ddata = pickle.load(open("ddata.p", "rb"))
+# cdata = pickle.load(open("cdata.p", "rb"))
+# pert_ids = pickle.load(open("pert_ids.p", "rb"))
+# df = pd.DataFrame(list(zip(bdata, ddata, cdata)),
+#                   columns=['Baseline', 'DeepCellState', "DeepCellState-T"], index=pert_ids)
+# #f, ax = plt.subplots(1, 1)
+# #df_bar = df.reset_index().melt(id_vars=["index"])
+# sns.boxplot(data=df)
+# sns.stripplot(data=df, jitter=0.1, dodge=True, linewidth=2, size=8)
+# #ax.legend()
+# plt.savefig("ext_cancer.png")
+# plt.close(None)
+
+mat = pickle.load(open("matrix.p", "rb"))
+
+# Set up the matplotlib figure
+f, ax = plt.subplots(figsize=(11, 9))
+
+# Generate a custom diverging colormap
+cmap = sns.diverging_palette(230, 20, as_cmap=True)
+
+# Draw the heatmap with the mask and correct aspect ratio
+sns.heatmap(mat, cmap=cmap, square=True)
+plt.savefig("an1.png")
+plt.close(None)

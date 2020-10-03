@@ -1,5 +1,10 @@
+import gc
 import math
-
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+matplotlib.use("Agg")
 import cmapPy.pandasGEXpress.parse_gctx as pg
 import cmapPy.pandasGEXpress.subset_gctoo as sg
 import pandas as pd
@@ -195,47 +200,60 @@ autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
 
 baseline_corr = 0
 our_corr = 0
-input_tr = []
-output_tr = []
+input_data = []
+output_data = []
+bdata = []
+ddata = []
+cdata = []
 for p in pert_ids:
     df_mcf7 = to_profile(df_data, "MCF7", p)
     df_pc3 = to_profile(df_data, "PC-3", p)
-    if p != "cisplatin":
-        input_tr.append(df_pc3)
-        output_tr.append(df_mcf7)
-    else:
-        test_input = df_pc3
-        test_output = df_mcf7
+    input_data.append(df_pc3)
+    output_data.append(df_mcf7)
     baseline_corr = baseline_corr + stats.pearsonr(df_pc3.flatten(), df_mcf7.flatten())[0]
     decoded = autoencoder.predict(np.asarray([df_pc3]))
     # print(get_intersection(decoded, df_mcf7, 50))
     our_corr = our_corr + stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0]
     print(p + ":" + str(stats.pearsonr(df_pc3.flatten(), df_mcf7.flatten())[0])
           + " : " + str(stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0]))
+    bdata.append(stats.pearsonr(df_pc3.flatten(), df_mcf7.flatten())[0])
+    ddata.append(stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0])
+
+pickle.dump(pert_ids, open("pert_ids.p", "wb"))
+pickle.dump(bdata, open("bdata.p", "wb"))
+pickle.dump(ddata, open("ddata.p", "wb"))
 
 baseline_corr = baseline_corr / len(pert_ids)
 our_corr = our_corr / len(pert_ids)
 print("Baseline: " + str(baseline_corr))
 print("DeepCellState: " + str(our_corr))
 
-decoded = autoencoder.predict(np.asarray([test_input]))
-print(get_intersection(decoded.flatten(), test_output, 50))
-corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
-print("without training: " + str(corr))
+tcorr = 0
+for i in range(len(pert_ids)):
+    test_input = input_data[i]
+    test_output = output_data[i]
+    autoencoder = keras.models.load_model("best_autoencoder_1/main_model")
+    cell_decoders = {}
+    cell_decoders["MCF7"] = pickle.load(open("best_autoencoder_1/" + "MCF7" + "_decoder_weights", "rb"))
+    cell_decoders["PC3"] = pickle.load(open("best_autoencoder_1/" + "PC3" + "_decoder_weights", "rb"))
+    autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
 
-# input_tr = np.asarray(input_tr)
-# output_tr = np.asarray(output_tr)
-# # autoencoder.trainable = True
-# autoencoder.fit(input_tr, output_tr, epochs=4, batch_size=4)
-# decoded = autoencoder.predict(np.asarray([test_input]))
-# print(get_intersection(decoded.flatten(), test_output, 50))
-# corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
-# print(corr)
-#
-# autoencoder = deepfake.build(978, 64)
-# autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-# autoencoder.fit(input_tr, output_tr, epochs=30, batch_size=4)
-# decoded = autoencoder.predict(np.asarray([test_input]))
-# print(get_intersection(decoded.flatten(), test_output, 50))
-# corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
-# print(corr)
+    input_tr = np.delete(np.asarray(input_data), i, axis=0)
+    output_tr = np.delete(np.asarray(output_data), i, axis=0)
+    # autoencoder.trainable = True
+    autoencoder.fit(input_tr, output_tr, epochs=5, batch_size=1)
+    decoded = autoencoder.predict(np.asarray([test_input]))
+    # print(get_intersection(decoded.flatten(), test_output, 50))
+    corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
+    cdata.append(corr)
+    tcorr = tcorr + corr
+
+     # Needed to prevent Keras memory leak
+    del autoencoder
+    gc.collect()
+    K.clear_session()
+    tf.compat.v1.reset_default_graph()
+
+tcorr = tcorr / len(pert_ids)
+print("DeepCellState*: " + str(tcorr))
+pickle.dump(cdata, open("cdata.p", "wb"))
