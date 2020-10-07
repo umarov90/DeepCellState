@@ -87,11 +87,12 @@ cell_data = pickle.load(open("cell_data.p", "rb"))
 #     except Exception as e:
 #         print(e)
 # pickle.dump(tf_data, open("tf_data.p", "wb"))
-
+final_sets = {}
 for key in ["PC3", "MCF7"]:  # ["PC3", "MCF7"]:
     print(key + "________________________________________________")
     autoencoder.get_layer("decoder").set_weights(cell_decoders[key])
     total_results = []
+    seen_perts = []
     for i in range(len(cell_data.test_data)):
         if i % 100 == 0:
             print(str(i) + " - ", end="", flush=True)
@@ -104,12 +105,14 @@ for key in ["PC3", "MCF7"]:  # ["PC3", "MCF7"]:
                                                                                      test_meta_object)
         if closest_profile is None:
             continue
-
+        if test_meta_object[1] in seen_perts:
+            continue
+        seen_perts.append(test_meta_object[1])
         test_profile = np.asarray([cell_data.test_data[i]])
         results = []
-        for k in range(100):
+        for k in range(1000):
             damaged_profile = np.zeros(closest_profile.shape)
-            inds = random.sample(range(0, 978), 200)
+            inds = random.sample(range(0, 978), 100)
             damaged_profile[0, inds] = closest_profile[0, inds]
 
             decoded1 = autoencoder.predict(damaged_profile)
@@ -119,9 +122,9 @@ for key in ["PC3", "MCF7"]:  # ["PC3", "MCF7"]:
         results = results[:10]
         total_results.extend(results)
         results = []
-        for k in range(100):
+        for k in range(1000):
             damaged_profile = closest_profile.copy()
-            inds = random.sample(range(0, 978), 200)
+            inds = random.sample(range(0, 978), 100)
             damaged_profile[0, inds] = 0
             decoded1 = autoencoder.predict(damaged_profile)
             pcc = stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
@@ -130,6 +133,7 @@ for key in ["PC3", "MCF7"]:  # ["PC3", "MCF7"]:
         results = results[:10]
         total_results.extend(results)
     total_results = np.asarray([r[1] for r in total_results]).flatten()
+    # total_results = pickle.load(open("total_results_" + key + ".p", "rb"))
     pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
     c = Counter(total_results)
     top_genes_tuples = c.most_common(100)
@@ -137,4 +141,17 @@ for key in ["PC3", "MCF7"]:  # ["PC3", "MCF7"]:
     for x, y in top_genes_tuples:
         top_genes.append(x)
     top_genes = symbols[top_genes]
+    final_sets[key] = top_genes
     np.savetxt("top_genes_" + key + ".tsv", top_genes, delimiter="\t", fmt="%s")
+
+for key, value in final_sets.items():
+    a = set([])
+    # for key2, value2 in final_sets.items():
+    #     if key == key2:
+    #         continue
+    #     if len(a) == 0:
+    #         a = set(value2)
+    #     else:
+    #         a = a | set(value2)
+    b = set(value) - a
+    # np.savetxt("top_genes_" + key + ".tsv", np.array(list(b)), delimiter="\t", fmt="%s")
