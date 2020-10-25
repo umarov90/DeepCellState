@@ -2,7 +2,6 @@ import os
 from scipy import stats
 
 import deepfake
-import deepfake_gan
 import utils1
 from CellData import CellData
 import numpy as np
@@ -15,7 +14,7 @@ np.random.seed(0)
 
 # parameters
 wdir = "sub2/"
-test_folds = [1]
+test_folds = ["7"]
 # test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
 #               "5-HT modulator_ids"]
@@ -24,7 +23,7 @@ test_folds = [1]
 #               "histaminergic_ids", "antipsychotic_ids", "GABAergic_ids", "dopaminergic_ids"]
 # test_folds = ["final_test"]
 input_size = 978
-latent_dim = 2
+latent_dim = 128
 data_folder = "/home/user/data/DeepFake/" + wdir
 
 
@@ -40,13 +39,15 @@ bad = []
 for r, test_fold in enumerate(test_folds):
     test_fold = str(test_fold)
     tr_size = 1280
-    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", test_fold, tr_size)
+    # cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", test_fold, tr_size)
+    # pickle.dump(cell_data, open("cell_data.p", "wb"))
+    cell_data = pickle.load(open("cell_data.p", "rb"))
     # with open("sizes.txt", 'a+') as f:
     #     f.write(str(len(cell_data.train_data)))
     #     f.write("\n")
     # continue
     autoencoder, cell_decoders = deepfake.get_best_autoencoder(input_size, latent_dim,
-                                                               cell_data, "1", 1)
+                                                               cell_data, test_fold, 1)
     encoder = autoencoder.get_layer("encoder")
     results = {}
     img_count = 0
@@ -132,41 +133,41 @@ for r, test_fold in enumerate(test_folds):
         #     good.append(vector1)
         # else:
         #     bad.append(vector1)
-    for i in range(len(cell_data.train_data)):
-        if i % 100 == 0:
-            print(str(i) + " - ", end="", flush=True)
-        test_meta_object = cell_data.train_meta[i]
-        if test_meta_object[2] != test_trt:
-            continue
-        if test_meta_object[0] != "MCF7":
-            continue
-        closest, closest_profile, mean_profile, all_profiles = cell_data.get_profile(cell_data.train_data,
-                                                                                     cell_data.meta_dictionary_pert[
-                                                                                         test_meta_object[1]],
-                                                                                     test_meta_object)
-        if closest_profile is None:
-            continue
-        if test_meta_object[1] in seen_perts:
-            continue
-        seen_perts.append(test_meta_object[1])
-        test_profile = np.asarray([cell_data.train_data[i]])
-        weights = cell_decoders[cell_data.train_meta[i][0]]
-        autoencoder.get_layer("decoder").set_weights(weights)
-        decoded1 = autoencoder.predict(closest_profile)
-        predictions = []
-        for p in all_profiles:
-            predictions.append(autoencoder.predict(np.asarray([p])))
-
-        special_decoded = np.mean(np.asarray(predictions), axis=0, keepdims=True)
-        bp = stats.pearsonr(mean_profile.flatten(), test_profile.flatten())[0]
-        dp = stats.pearsonr(special_decoded.flatten(), test_profile.flatten())[0]
-        vector1 = encoder.predict(np.asarray(test_profile)).flatten()
-        vector1 = np.append(vector1, dp)
-        vectors.append(vector1)
-        input_profiles.append(closest_profile.flatten())
-    np.savetxt("families/" + test_fold.split("_")[0], np.array(vectors), delimiter=',')
-    np.savetxt("input_profiles", np.array(input_profiles), delimiter=',')
-    np.savetxt("perts.csv", np.asarray(seen_perts), delimiter=",", fmt='%s')
+    # for i in range(len(cell_data.train_data)):
+    #     if i % 100 == 0:
+    #         print(str(i) + " - ", end="", flush=True)
+    #     test_meta_object = cell_data.train_meta[i]
+    #     if test_meta_object[2] != test_trt:
+    #         continue
+    #     if test_meta_object[0] != "MCF7":
+    #         continue
+    #     closest, closest_profile, mean_profile, all_profiles = cell_data.get_profile(cell_data.train_data,
+    #                                                                                  cell_data.meta_dictionary_pert[
+    #                                                                                      test_meta_object[1]],
+    #                                                                                  test_meta_object)
+    #     if closest_profile is None:
+    #         continue
+    #     if test_meta_object[1] in seen_perts:
+    #         continue
+    #     seen_perts.append(test_meta_object[1])
+    #     test_profile = np.asarray([cell_data.train_data[i]])
+    #     weights = cell_decoders[cell_data.train_meta[i][0]]
+    #     autoencoder.get_layer("decoder").set_weights(weights)
+    #     decoded1 = autoencoder.predict(closest_profile)
+    #     predictions = []
+    #     for p in all_profiles:
+    #         predictions.append(autoencoder.predict(np.asarray([p])))
+    #
+    #     special_decoded = np.mean(np.asarray(predictions), axis=0, keepdims=True)
+    #     bp = stats.pearsonr(mean_profile.flatten(), test_profile.flatten())[0]
+    #     dp = stats.pearsonr(special_decoded.flatten(), test_profile.flatten())[0]
+    #     vector1 = encoder.predict(np.asarray(test_profile)).flatten()
+    #     vector1 = np.append(vector1, dp)
+    #     vectors.append(vector1)
+    #     input_profiles.append(closest_profile.flatten())
+    # np.savetxt("families/" + test_fold.split("_")[0], np.array(vectors), delimiter=',')
+    # np.savetxt("input_profiles", np.array(input_profiles), delimiter=',')
+    # np.savetxt("perts.csv", np.asarray(seen_perts), delimiter=",", fmt='%s')
     # np.savetxt("good.np", np.array(good), delimiter=',')
     # np.savetxt("bad.np", np.array(bad), delimiter=',')
     # exit()

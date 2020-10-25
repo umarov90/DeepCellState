@@ -171,10 +171,10 @@ for i in range(len(input_tr)):
     # print(closest_cor)
     # print(info)
 
-    autoencoder = keras.models.load_model("best_autoencoder_1/main_model")
+    autoencoder = keras.models.load_model("best_autoencoder_ext_val/main_model")
     cell_decoders = {}
-    cell_decoders["MCF7"] = pickle.load(open("best_autoencoder_1/" + "MCF7" + "_decoder_weights", "rb"))
-    cell_decoders["PC3"] = pickle.load(open("best_autoencoder_1/" + "PC3" + "_decoder_weights", "rb"))
+    cell_decoders["MCF7"] = pickle.load(open("best_autoencoder_ext_val/" + "MCF7" + "_decoder_weights", "rb"))
+    cell_decoders["PC3"] = pickle.load(open("best_autoencoder_ext_val/" + "PC3" + "_decoder_weights", "rb"))
 
     autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
     decoded = autoencoder.predict(np.asarray([df_hepg2]))
