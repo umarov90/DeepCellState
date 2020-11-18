@@ -48,14 +48,15 @@ def draw_vectors(vectors, output, names=None):
     plt.close(None)
 
 
-def draw_profiles(test_profile, decoded, closest_profile, input_size, output_file):
+def draw_profiles(test_profile, decoded, closest_profile, input_size, output_file, letter):
     img_data = [closest_profile.flatten(), decoded.flatten(), test_profile.flatten()]
     all_data = np.asarray(img_data)
-    vmin = np.min(all_data)
-    vmax = np.max(all_data)
+    maxv = max(abs(np.min(all_data)), abs(np.max(all_data)))
+    vmin = -maxv # np.min(all_data)
+    vmax = +maxv # np.max(all_data)
     names = ["Baseline", "DeepCellState", "Ground truth"]
     fig, axes = plt.subplots(nrows=len(img_data), ncols=1, figsize=(14, 4))
-    fig.subplots_adjust(left=None, bottom=None, right=0.85, top=None, wspace=0.4, hspace=1.4)
+    fig.subplots_adjust(left=0.2, bottom=None, right=0.85, top=None, wspace=0.4, hspace=1.4)
     cbar_ax = fig.add_axes([0.9, 0.15, 0.05, 0.7])
     cmap = sns.diverging_palette(250, 15, s=75, l=40, sep=1, as_cmap=True)
     for j, ax in enumerate(axes.flatten()):
@@ -78,8 +79,14 @@ def draw_profiles(test_profile, decoded, closest_profile, input_size, output_fil
         for label in hm.get_yticklabels():
             label.set_visible(False)
         # ax.set_title(names[i], x=-1.05)
+    # axes[0].text(-0.1, 1.05, letter, transform=ax.transAxes, size=20, weight='bold')
+    fig.suptitle(letter, size=20, weight='bold', horizontalalignment='left', x=0.1, y=.95)
     plt.savefig(output_file)
     plt.close(None)
+
+
+def fix(s):
+    return "".join([x if x.isalnum() else "_" for x in s])
 
 
 def draw_batch_profiles(profiles, input_size, output_file):
@@ -153,13 +160,43 @@ def draw_one_profiles(profiles, input_size, output_file):
     plt.close(None)
 
 
-def draw_scatter_profiles(test_profile, decoded, closest_profile, output_file):
-    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5, 10))
-    # fig.subplots_adjust(left=None, bottom=None, right=0.85, top=None, wspace=0.4, hspace=1.4)
-    sns.scatterplot(x=decoded.flatten(), y=test_profile.flatten(), ax=axes[0])
-    axes[0].set_title("DeepCellState")
-    sns.scatterplot(x=closest_profile.flatten(), y=test_profile.flatten(), ax=axes[1])
-    axes[1].set_title("Baseline")
+def draw_scatter_profiles(test_profile, decoded, closest_profile, output_file, letter):
+    cmap = sns.color_palette("dark:salmon", as_cmap=True)
+    # cmap = sns.diverging_palette(250, 15, s=75, l=40, sep=1, as_cmap=True)
+    col1 = np.abs(closest_profile - test_profile).flatten()
+    col2 = np.abs(decoded - test_profile).flatten()
+    vmin = 0
+    vmax = max(np.max(col1), np.max(col2))
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8, 3))
+    # sns.kdeplot(x=closest_profile.flatten(), y=test_profile.flatten(), fill=True, ax=axes[0], levels=5)
+    sns.scatterplot(x=closest_profile.flatten(), y=test_profile.flatten(), ax=axes[0], c=col1,
+                    cmap=cmap, vmin=vmin, vmax=vmax, s=20)
+    axes[0].set_title("Baseline")
+    axes[0].set(xlabel='Baseline gene value', ylabel='True gene value')
+    # sns.kdeplot(x=decoded.flatten(), y=test_profile.flatten(), fill=True, ax=axes[1], levels=5)
+    sns.scatterplot(x=decoded.flatten(), y=test_profile.flatten(), ax=axes[1], c=col2,
+                    cmap=cmap, vmin=vmin, vmax=vmax, s=20)
+
+    # plt.ylim(-1, 1)
+    # plt.xlim(-1, 1)
+
+    axes[1].set_title("DeepCellState")
+    axes[0].set(xlabel='Predicted gene value', ylabel='True gene value')
+    # axes[0].text(-1, 1.1, letter, transform=ax.transAxes, size=20, weight='bold')
+    # fig.suptitle(letter, size=20, weight='bold', horizontalalignment='left', x=0.1, y=.95)
+
+    # Make space for the colorbar
+    fig.subplots_adjust(right=.92)
+
+    # Define a new Axes where the colorbar will go
+    cax = fig.add_axes([.94, .25, .02, .6])
+
+    # Get a mappable object with the same colormap as the data
+    points = plt.scatter([], [], c=[], vmin=vmin, vmax=vmax, cmap=cmap)
+
+    # Draw the colorbar
+    fig.colorbar(points, cax=cax)
+
     plt.savefig(output_file)
     plt.close(None)
 
@@ -170,31 +207,4 @@ def draw_dist(matrix, output_file):
     plt.close(None)
 
 
-data_folder = "/home/user/data/DeepFake/sub2/"
-os.chdir(data_folder)
-# bdata = pickle.load(open("bdata.p", "rb"))
-# ddata = pickle.load(open("ddata.p", "rb"))
-# cdata = pickle.load(open("cdata.p", "rb"))
-# pert_ids = pickle.load(open("pert_ids.p", "rb"))
-# df = pd.DataFrame(list(zip(bdata, ddata, cdata)),
-#                   columns=['Baseline', 'DeepCellState', "DeepCellState-T"], index=pert_ids)
-# #f, ax = plt.subplots(1, 1)
-# #df_bar = df.reset_index().melt(id_vars=["index"])
-# sns.boxplot(data=df)
-# sns.stripplot(data=df, jitter=0.1, dodge=True, linewidth=2, size=8)
-# #ax.legend()
-# plt.savefig("ext_cancer.png")
-# plt.close(None)
 
-mat = pickle.load(open("matrix.p", "rb"))
-
-# Set up the matplotlib figure
-f, ax = plt.subplots(figsize=(11, 9))
-
-# Generate a custom diverging colormap
-cmap = sns.diverging_palette(230, 20, as_cmap=True)
-
-# Draw the heatmap with the mask and correct aspect ratio
-sns.heatmap(mat, cmap=cmap, square=True)
-plt.savefig("an1.png")
-plt.close(None)

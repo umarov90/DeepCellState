@@ -13,8 +13,8 @@ random.seed(0)
 np.random.seed(0)
 
 # parameters
-wdir = "sub2/"
-test_folds = ["7"]
+wdir = "2cell_10fold/"
+test_folds = ["1"]
 # test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
 #               "5-HT modulator_ids"]
@@ -23,7 +23,7 @@ test_folds = ["7"]
 #               "histaminergic_ids", "antipsychotic_ids", "GABAergic_ids", "dopaminergic_ids"]
 # test_folds = ["final_test"]
 input_size = 978
-latent_dim = 128
+latent_dim = 32
 data_folder = "/home/user/data/DeepFake/" + wdir
 
 
@@ -39,9 +39,9 @@ bad = []
 for r, test_fold in enumerate(test_folds):
     test_fold = str(test_fold)
     tr_size = 1280
-    # cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", test_fold, tr_size)
+    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", test_fold, tr_size)
     # pickle.dump(cell_data, open("cell_data.p", "wb"))
-    cell_data = pickle.load(open("cell_data.p", "rb"))
+    # cell_data = pickle.load(open("cell_data.p", "rb"))
     # with open("sizes.txt", 'a+') as f:
     #     f.write(str(len(cell_data.train_data)))
     #     f.write("\n")
@@ -127,8 +127,24 @@ for r, test_fold in enumerate(test_folds):
         vector1 = np.append(vector1, dp)
         vectors.append(vector1)
         input_profiles.append(closest_profile.flatten())
-        # if bp < 0.3 and dp > 0.6:
-        #     good_perts.append(test_meta_object[1])
+        # vector1 = encoder.predict(closest_profile)
+        # vector2 = encoder.predict(test_profile)
+        # vpcc = stats.pearsonr(vector1.flatten(), vector2.flatten())[0]
+        # print("Investigate")
+        if dp > 0.8 and bp < 0.5:
+            utils1.draw_profiles(test_profile, special_decoded, closest_profile,
+                             input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
+                                 + "_" + str(dp) + "_" + str(bp) + "_" +
+                                 utils1.fix(df.query('pert_id=="'+str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + ".pdf", "B")
+            utils1.draw_scatter_profiles(test_profile, special_decoded, closest_profile,
+                              "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
+                                 + "_" + str(dp) + "_" + str(bp) + "_" +
+                                 utils1.fix(df.query('pert_id=="'+str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + "_scatter.pdf", "C")
+        # latent_vectors_1 = encoder.predict(closest_profile)
+        # utils1.draw_vectors(latent_vectors_1, "vectors/" + str(i) + ".png")
+
+        # if bp < 0.5 and dp > 0.6:
+        good_perts.append([test_meta_object[1], dp])
         # if dp > 0.55:
         #     good.append(vector1)
         # else:
@@ -172,37 +188,29 @@ for r, test_fold in enumerate(test_folds):
     # np.savetxt("bad.np", np.array(bad), delimiter=',')
     # exit()
     # print("good perts: " + str(len(good_perts)))
-    # matrix = np.zeros((len(good_perts), len(good_perts)))
-    # for i in range(len(good_perts)):
-    #     for j in range(len(good_perts)):
-    #         a = cell_data.get_profile_cell_pert(cell_data.test_data, cell_data.test_meta, "MCF7",
-    #                                             good_perts[i])
-    #         b = cell_data.get_profile_cell_pert(cell_data.test_data, cell_data.test_meta, "PC3",
-    #                                             good_perts[j])
-    #         if a is None or b is None:
-    #             continue
-    #         vector1 = encoder.predict(np.asarray(a))
-    #         vector2 = encoder.predict(np.asarray(b))
-    #         vpcc = stats.pearsonr(vector1.flatten(), vector2.flatten())[0]
-    #         matrix[i][j] = vpcc
-    # pickle.dump(matrix, open("matrix.p", "wb"))
+    good_perts.sort(key=lambda x: x[1], reverse=True)
+    # good_perts = good_perts[:6]
+    matrix = np.zeros((len(good_perts), len(good_perts)))
+    for i in range(len(good_perts)):
+        for j in range(len(good_perts)):
+            a = cell_data.get_profile_cell_pert(cell_data.test_data, cell_data.test_meta, "MCF7",
+                                                good_perts[i][0])
+            b = cell_data.get_profile_cell_pert(cell_data.test_data, cell_data.test_meta, "PC3",
+                                                good_perts[j][0])
+            if a is None or b is None:
+                continue
+            vector1 = encoder.predict(np.asarray(a))
+            vector2 = encoder.predict(np.asarray(b))
+            vpcc = stats.pearsonr(vector1.flatten(), vector2.flatten())[0]
+            matrix[i][j] = vpcc
+    for i in range(len(good_perts)):
+        good_perts[i] = df.query('pert_id=="'+str(good_perts[i][0]) + '"')["pert_iname"].tolist()[0]
+    df1 = pd.DataFrame(data=matrix, index=good_perts, columns=good_perts)
+    df1.to_pickle("latent.p")
     #
     # exit()
 
-        #     vector1 = encoder.predict(closest_profile)
-        #     vector2 = encoder.predict(test_profile)
-        #     vpcc = stats.pearsonr(vector1.flatten(), vector2.flatten())[0]
-        #     print("Investigate")
-        # utils1.draw_profiles(test_profile, special_decoded, closest_profile,
-        #                  input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
-        #                      + "_" + str(dp) + "_" + str(bp) + "_" +
-        #                      df.query('pert_id=="'+str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0] + ".png")
-        # utils1.draw_scatter_profiles(test_profile, special_decoded, closest_profile,
-        #                   "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
-        #                      + "_" + str(dp) + "_" + str(bp) + "_" +
-        #                      df.query('pert_id=="'+str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0] + "_scatter.png")
-        #     latent_vectors_1 = encoder.predict(closest_profile)
-        #     utils1.draw_vectors(latent_vectors_1, "vectors/" + str(i) + ".png")
+
 
     # family_name = "adrenergic"
     # family = np.loadtxt("../LINCS/folds/" + family_name + "_ids", dtype='str')
@@ -210,6 +218,11 @@ for r, test_fold in enumerate(test_folds):
     # z_mean, z_log_var, latent_vectors = encoder.predict(cell_data.train_data[inds])
     # np.savetxt(family_name, latent_vectors, delimiter=',')
     # exit()
+
+    sc = (results["Our multi-correlation is: "] - results["Baseline correlation (mean profile): "]) / results["count"]
+    with open("fam.txt", 'a+') as f:
+        f.write(test_fold + " , " + str(sc))
+        f.write("\n")
 
     print(" Done")
     with open("log.txt", 'a+') as f:

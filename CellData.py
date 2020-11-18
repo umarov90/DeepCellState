@@ -69,7 +69,7 @@ class CellData:
         #         (df['pert_type'] == "trt_oe") | (df['pert_type'] == "trt_lig")]
         # df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") | (df['cell_id'] == "A375") |
         #         (df['cell_id'] == "HT29") | (df['cell_id'] == "HA1E") | (df['cell_id'] == "YAPC") |
-        #         (df['cell_id'] == "HELA") | (df['cell_id'] == "HEPG2")]
+        #         (df['cell_id'] == "HELA") ] # | (df['cell_id'] == "HEPG2")
         # df = df[(df['pert_type'] == "trt_sh") | (df['pert_type'] == "trt_sh.cgs") | (df['pert_type'] == "trt_cp")]
         df = df[(df['pert_type'] == "trt_cp")]
         print("Cell filtering: " + str(df.shape))
@@ -77,8 +77,8 @@ class CellData:
         # df['pert_idose'] = df['pert_idose'].astype(float)
         # df.pert_itime.value_counts()
         # df.pert_idose.value_counts()
-        df = df[(df['pert_itime'] == "24 h")]
-        print("time filtering: " + str(df.shape))
+        # df = df[(df['pert_itime'] == "24 h")]
+        # print("time filtering: " + str(df.shape))
         # df = df[(df['pert_idose'] < 4)]
         # print("dose filtering: " + str(df.shape))
         print(df.groupby(['cell_id']).size())

@@ -1,8 +1,11 @@
+import os
+import pickle
+import pandas as pd
+import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
-import os
-import pandas as pd
+matplotlib.use("Agg")
 
 data_folder = "/home/user/data/DeepFake/sub2/"
 os.chdir(data_folder)

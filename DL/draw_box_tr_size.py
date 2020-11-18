@@ -13,7 +13,7 @@ import pandas as pd
 
 fig, ax = plt.subplots(figsize=(10, 5))
 
-df = pd.read_csv("final_result.tsv", sep="\t")
+df = pd.read_csv("../final_result.tsv", sep="\t")
 
 df_long = pd.melt(df, "Training set size", var_name="Methods", value_name="PCC")
 # plt.style.use('seaborn-whitegrid')

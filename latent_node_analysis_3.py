@@ -126,20 +126,20 @@ for cn, key in enumerate(cell_data.cell_types):  # ["PC3", "MCF7"]:
         # results.sort(key=lambda x: x[0], reverse=True)
         # results = results[:10]
         # total_results.extend(results)
-        results = []
-        for k in range(100):
-            damaged_profile = closest_profile.copy()
-            inds = random.sample(range(0, 978), 100)
-            damaged_profile[0, inds] = 0
-            decoded1 = autoencoder.predict(damaged_profile)
-            pcc = stats.pearsonr(decoded1[0, inds].flatten(), test_profile[0, inds].flatten())[0]
-            results.append([pcc, inds])
-        results.sort(key=lambda x: x[0], reverse=True)
-        results = results[:10]
-        total_results.extend(results)
-    total_results = np.asarray([r[1] for r in total_results]).flatten()
-    pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
-    # total_results = pickle.load(open("total_results_" + key + ".p", "rb"))
+        # results = []
+        # for k in range(100):
+        #     damaged_profile = closest_profile.copy()
+        #     inds = random.sample(range(0, 978), 100)
+        #     damaged_profile[0, inds] = 0
+        #     decoded1 = autoencoder.predict(damaged_profile)
+        #     pcc = stats.pearsonr(decoded1[0, inds].flatten(), test_profile[0, inds].flatten())[0]
+        #     results.append([pcc, inds])
+        # results.sort(key=lambda x: x[0], reverse=True)
+        # results = results[:10]
+        # total_results.extend(results)
+    # total_results = np.asarray([r[1] for r in total_results]).flatten()
+    # pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
+    total_results = pickle.load(open("total_results_" + key + ".p", "rb"))
     c = Counter(total_results)
     for i in range(978):
         importance_scores[cn][i] = c[i] / num
@@ -162,8 +162,8 @@ for i in range(input_size):
 
 df.columns = genes
 df.index = rows
-df = df.reindex(df.sum().sort_values().index, axis=1)
-# df.drop(df.columns[df.apply(lambda col: col.max() < 40)], axis=1, inplace=True)
+# df = df.reindex(df.sum().sort_values().index, axis=1)
+df.drop(df.columns[df.apply(lambda col: col.max() < 2.45)], axis=1, inplace=True)
 
 df.to_csv("clustermap.csv")
 

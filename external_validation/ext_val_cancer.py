@@ -4,6 +4,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+
+from external_validation import pycage
+
 matplotlib.use("Agg")
 import cmapPy.pandasGEXpress.parse_gctx as pg
 import cmapPy.pandasGEXpress.subset_gctoo as sg
@@ -11,6 +14,7 @@ import pandas as pd
 import os
 from tensorflow.python.keras.optimizers import Adam
 import deepfake
+from scipy.stats import zscore
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -47,79 +51,6 @@ def find_closest_corr(train_data, meta, input_profile, cell):
     return best_corr, meta[best_ind]
 
 
-def read_profile(file):
-    df = pd.read_csv(file, sep=",")
-    profiles_trt = []
-    profiles_ctrl = []
-    for i in range(1, len(df.columns)):
-        profile = []
-        for g in genes:
-            if len(df[(df['Gene_Symbol'] == g)]) != 0:
-                profile.append(df[(df['Gene_Symbol'] == g)][df.columns[i]].tolist()[0])
-            else:
-                profile.append(0)
-        profile = np.asarray(profile)
-        profile = profile + 20
-        # profile = 1000000 * (profile / np.max(profile))
-        if df.columns[i].startswith("T"):  # in trt df[(df['Gene_Symbol'] == "HMGCR")][df.columns[i]]
-            profiles_trt.append(profile)
-        else:
-            profiles_ctrl.append(profile)
-    # all_profiles = profiles_trt.copy()
-    # all_profiles.extend(profiles_ctrl)
-    # all_profiles = np.asarray(all_profiles)
-    # all_profiles = stats.zscore(all_profiles, axis=0)
-    # all_profiles[:len(profiles_trt)]
-    trt_profile = np.mean(np.asarray(profiles_trt), axis=0)
-    ctrl_profile = np.mean(np.asarray(profiles_ctrl), axis=0)
-    utils1.draw_one_profiles([trt_profile], len(genes), file + "trt_profiles.png")
-    utils1.draw_one_profiles([ctrl_profile], len(genes), file + "ctrl_profiles.png")
-    profile = np.zeros(trt_profile.shape)
-    for i in range(len(genes)):
-        if ctrl_profile[i] != 0 and trt_profile[i] != 0:
-            #if trt_profile[i] > 10 and ctrl_profile[i] > 10:
-            try:
-                profile[i] = math.log(trt_profile[i] / ctrl_profile[i])
-            except Exception as e:
-                print(e)
-    # profile = 2 * (profile - np.min(profile)) / (np.max(profile) - np.min(profile)) - 1
-    profile = profile / max(np.max(profile), abs(np.min(profile)))
-    utils1.draw_one_profiles([profile], len(genes), file + "profile.png")
-    profile = np.expand_dims(profile, axis=-1)
-    # profile = (profile - np.min(profile)) / (np.max(profile) - np.min(profile))
-    return profile
-
-
-def get_profile(data, meta_data, test_cell, test_pert):
-    pert_list = [p[1] for p in meta_data if
-                 p[0][0] == test_cell and p[0][
-                     1] == test_pert]  # and p[0][2] == test_pert[2] and p[0][3] == test_pert[3]
-    if len(pert_list) > 0:
-        random_best = randint(0, len(pert_list) - 1)
-        mean_profile = np.mean(np.asarray(data[pert_list]), axis=0, keepdims=True)
-        return random_best, np.asarray([data[pert_list[random_best]]]), mean_profile, data[pert_list]
-    else:
-        return -1, None, None, None
-
-
-def get_intersection(a, b, top_genes):
-    predicted_gene_scores = []
-    for i in range(978):
-        predicted_gene_scores.append([genes[i], a[i]])
-    predicted_gene_scores = sorted(predicted_gene_scores, key=lambda x: x[1], reverse=True)
-    predicted_gene_scores = predicted_gene_scores[:top_genes]
-    gene_scores = []
-    for i in range(978):
-        gene_scores.append([genes[i], b[i]])
-    gene_scores = sorted(gene_scores, key=lambda x: x[1], reverse=True)
-    gene_scores = gene_scores[:top_genes]
-
-    top_gt = set([p[0] for p in gene_scores])
-    top_predicted = set([p[0] for p in predicted_gene_scores])
-    z = top_gt.intersection(top_predicted)
-    return len(z)
-
-
 def to_profile(df_data, cell, pert):
     indexes_trt = [i for i in range(len(meta)) if meta[i][0] == cell and
                    meta[i][1] == pert and not meta[i][2].startswith("0") and meta[i][3] == "24h"]
@@ -150,15 +81,11 @@ df_data = pd.read_csv(input_file, sep="\t", comment='!', index_col="ID_REF")
 df_gpl = pd.read_csv("../data/GPL571-17391.txt", sep="\t", comment='#', index_col="ID")
 affy_dict = df_gpl["Gene Symbol"].to_dict()
 missed = 0
-count = 0
-seen = []
+
 for key, value in affy_dict.items():
     names = str(value).split(" /// ")
     for n in names:
         if n in genes:
-            if n not in seen:
-                count = count + 1
-                seen.append(n)
             affy_dict[key] = n
             break
     else:
@@ -189,7 +116,6 @@ cell_decoders = {}
 cell_decoders["MCF7"] = pickle.load(open("best_autoencoder_ext_val/" + "MCF7" + "_decoder_weights", "rb"))
 cell_decoders["PC3"] = pickle.load(open("best_autoencoder_ext_val/" + "PC3" + "_decoder_weights", "rb"))
 autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
-# print("Baseline: " + str(baseline_corr))
 
 # closest_cor, info = find_closest_corr(cell_data.train_data, cell_data.train_meta, df_pc3, "PC3")
 # print(closest_cor)
@@ -219,14 +145,24 @@ for p in pert_ids:
     # bdata.append(stats.pearsonr(df_pc3.flatten(), df_mcf7.flatten())[0])
     # ddata.append(stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0])
 
+# for i, p in enumerate(pert_ids):
+#     output_data[i] = (output_data[i] - np.mean(np.asarray(output_data), axis=0))
+#     input_data[i] = (input_data[i] - np.mean(np.asarray(input_data), axis=0))
+#     output_data[i][np.isnan(output_data[i])] = 0
+#     input_data[i][np.isnan(input_data[i])] = 0
+#
+# for i, p in enumerate(pert_ids):
+#     output_data[i] = output_data[i] / np.max(np.abs(np.asarray(output_data)))
+#     input_data[i] = input_data[i] / np.max(np.abs(np.asarray(input_data)))
 
-p1 = np.mean(np.asarray(input_data), axis=0)
-p2 = np.mean(np.asarray(output_data), axis=0)
+# p2 = np.mean(np.asarray(output_data), axis=0)
 # p2 = matrix.std(axis=0)
 # utils1.draw_vectors([p1, p2], "ext_val_info.png", names=["Mean", "SD"])
 for i, p in enumerate(pert_ids):
-    df_mcf7 = output_data[i] - p2
-    df_pc3 = input_data[i] - p1
+    df_mcf7 = output_data[i]
+    df_pc3 = input_data[i]
+    df_mcf7[np.isnan(df_mcf7)] = 0
+    df_pc3[np.isnan(df_pc3)] = 0
     baseline_corr = baseline_corr + stats.pearsonr(df_pc3.flatten(), df_mcf7.flatten())[0]
     decoded = autoencoder.predict(np.asarray([df_pc3]))
     # print(get_intersection(decoded, df_mcf7, 50))
@@ -243,7 +179,7 @@ baseline_corr = baseline_corr / len(pert_ids)
 our_corr = our_corr / len(pert_ids)
 print("Baseline: " + str(baseline_corr))
 print("DeepCellState: " + str(our_corr))
-
+# exit()
 tcorr = 0
 tcorrb = 0
 for i in range(len(pert_ids)):
@@ -258,7 +194,7 @@ for i in range(len(pert_ids)):
     input_tr = np.delete(np.asarray(input_data), i, axis=0)
     output_tr = np.delete(np.asarray(output_data), i, axis=0)
     # autoencoder.trainable = True
-    autoencoder.fit(input_tr, output_tr, epochs=5, batch_size=1)
+    autoencoder.fit(input_tr, output_tr, epochs=10, batch_size=1)
     decoded = autoencoder.predict(np.asarray([test_input]))
     # print(get_intersection(decoded.flatten(), test_output, 50))
     corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]

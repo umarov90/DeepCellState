@@ -13,7 +13,7 @@ import pandas as pd
 
 fig, ax = plt.subplots(figsize=(10, 5))
 
-df = pd.read_csv("final_result (copy).tsv", sep="\t")
+df = pd.read_csv("../final_result (copy).tsv", sep="\t")
 
 df_long = pd.melt(df, "Training set size", var_name="Methods", value_name="PCC")
 # plt.style.use('seaborn-whitegrid')
@@ -24,7 +24,7 @@ df_long = pd.melt(df, "Training set size", var_name="Methods", value_name="PCC")
 # plt.axhline(y=0.281487788960181, color='brown', linestyle='--')
 sns.barplot(x="Training set size", hue="Methods", y="PCC", data=df_long,
     palette="Set2", saturation=0.5, linewidth=1,
-            edgecolor="0.2", capsize=.15, errwidth=2, ax=ax)
+            edgecolor="0.2", capsize=.15, errwidth=2, ax=ax, hue_order=["Baseline", "DeepCellState"])
 # # Shrink current axis by 20%
 # box = ax.get_position()
 # ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
@@ -39,4 +39,4 @@ sns.barplot(x="Training set size", hue="Methods", y="PCC", data=df_long,
 # to effectively remove the last two.
 #l = plt.legend(handles, labels, bbox_to_anchor=(1.01, 1), loc=1.5, borderaxespad=0.)
 
-plt.savefig("bar.png")
+plt.savefig("bar.pdf")

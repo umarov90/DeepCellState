@@ -51,7 +51,8 @@ def read_profile(file):
         profile = profile + 5
         # profile = (1000000 * profile) / np.sum(profile)
         profile_name = df.columns[i]
-        if profile_name.startswith("T") and "-6-" not in profile_name:  # in trt df[(df['Gene_Symbol'] == "HMGCR")][df.columns[i]]
+        if profile_name.startswith(
+                "T") and "-6-" not in profile_name:  # in trt df[(df['Gene_Symbol'] == "HMGCR")][df.columns[i]]
             profiles_trt.append(profile)
             trt_names.append(profile_name)
         elif profile_name.startswith("C"):
@@ -72,7 +73,7 @@ def read_profile(file):
     profile = np.zeros(trt_profile.shape)
     for i in range(len(genes)):
         if ctrl_profile[i] != 0 and trt_profile[i] != 0:
-            #if trt_profile[i] > 5 or ctrl_profile[i] > 5:
+            # if trt_profile[i] > 5 or ctrl_profile[i] > 5:
             try:
                 profile[i] = math.log(trt_profile[i] / ctrl_profile[i])
             except Exception as e:
@@ -85,51 +86,21 @@ def read_profile(file):
     return profile
 
 
-def get_profile(data, meta_data, test_cell, test_pert):
-    pert_list = [p[1] for p in meta_data if
-                 p[0][0] == test_cell and p[0][
-                     1] == test_pert]  # and p[0][2] == test_pert[2] and p[0][3] == test_pert[3]
-    if len(pert_list) > 0:
-        random_best = randint(0, len(pert_list) - 1)
-        mean_profile = np.mean(np.asarray(data[pert_list]), axis=0, keepdims=True)
-        return random_best, np.asarray([data[pert_list[random_best]]]), mean_profile, data[pert_list]
-    else:
-        return -1, None, None, None
-
-
-def get_intersection(a, b, top_genes):
-    predicted_gene_scores = []
-    for i in range(978):
-        predicted_gene_scores.append([genes[i], a[i]])
-    predicted_gene_scores = sorted(predicted_gene_scores, key=lambda x: x[1], reverse=True)
-    predicted_gene_scores = predicted_gene_scores[:top_genes]
-    gene_scores = []
-    for i in range(978):
-        gene_scores.append([genes[i], b[i]])
-    gene_scores = sorted(gene_scores, key=lambda x: x[1], reverse=True)
-    gene_scores = gene_scores[:top_genes]
-
-    top_gt = set([p[0] for p in gene_scores])
-    top_predicted = set([p[0] for p in predicted_gene_scores])
-    z = top_gt.intersection(top_predicted)
-    return len(z)
-
-
 data_folder = "/home/user/data/DeepFake/sub2/"
 os.chdir(data_folder)
 
 genes = np.loadtxt("../gene_symbols.csv", dtype="str")
 
 if os.path.isfile("input_tr1.p"):
-    input_tr = pickle.load(open("input_tr.p", "rb"))
-    output_tr = pickle.load(open("output_tr.p", "rb"))
+    input_data = pickle.load(open("input_tr.p", "rb"))
+    output_data = pickle.load(open("output_tr.p", "rb"))
 else:
-    input_tr = np.asarray([read_profile("statins/H_Flu.csv"), read_profile("statins/H_Ato.csv"),
-                            read_profile("statins/H_Ros.csv"), read_profile("statins/H_Sim.csv")])
-    output_tr = np.asarray([read_profile("statins/M_Flu.csv"), read_profile("statins/M_Ato.csv"),
-                             read_profile("statins/M_Ros.csv"), read_profile("statins/M_Sim.csv")])
-    pickle.dump(input_tr, open("input_tr.p", "wb"))
-    pickle.dump(output_tr, open("output_tr.p", "wb"))
+    input_data = [read_profile("statins/H_Flu.csv"), read_profile("statins/H_Ato.csv"),
+                  read_profile("statins/H_Ros.csv"), read_profile("statins/H_Sim.csv")]
+    output_data = [read_profile("statins/M_Flu.csv"), read_profile("statins/M_Ato.csv"),
+                   read_profile("statins/M_Ros.csv"), read_profile("statins/M_Sim.csv")]
+    pickle.dump(input_data, open("input_tr.p", "wb"))
+    pickle.dump(output_data, open("output_tr.p", "wb"))
 
 if os.path.isfile("cell_data.p"):
     cell_data = pickle.load(open("cell_data.p", "rb"))
@@ -137,14 +108,15 @@ else:
     cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "1", 10)
     pickle.dump(cell_data, open("cell_data.p", "wb"))
 
+
 treatments = ["Fluvastatin", "Atrovastatin", "Rosuvastatin", "Simvastatin"]
 total_corr_base = 0
 total_corr_our = 0
-for i in range(len(input_tr)):
+for i in range(len(input_data)):
     print(str(treatments[i]), end="\t")
     test_index = i
-    df_hepg2 = input_tr[test_index]
-    df_mcf7 = output_tr[test_index]
+    df_hepg2 = input_data[test_index]
+    df_mcf7 = output_data[test_index]
     # input_tr = np.delete(input_tr, test_index, axis=0)
     # output_tr = np.delete(output_tr, test_index, axis=0)
     # df_mcf7[np.where(genes == "HMGCR")]

@@ -67,8 +67,8 @@ def build(input_size, latent_dim):
     # z = Add()([x, xd_input])
     z = tf.keras.layers.Concatenate(axis=-1)([x, xd_input])
     x = Dense(1)(z)
-    outputs = x
-    # outputs = Activation("tanh")(x)
+    # outputs = x
+    outputs = Activation("tanh")(x)
     decoder = Model([xd_input, latent_inputs], outputs, name="decoder")
     autoencoder = Model(inputs, decoder([xd, encoder(inputs)]), name="autoencoder")
     return autoencoder
