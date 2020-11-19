@@ -5,7 +5,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 matplotlib.use("Agg")
-
+sns.set(font_scale=1.3, style='white')
 wdir = "2cell_10fold/"
 data_folder = "/home/user/data/DeepFake/" + wdir
 os.chdir(data_folder)
@@ -14,7 +14,7 @@ df = pd.read_pickle("latent.p")
 mask = np.triu(np.ones_like(df, dtype=np.bool))
 
 # Set up the matplotlib figure
-f, ax = plt.subplots(figsize=(12, 8))
+f, ax = plt.subplots(figsize=(6, 5.5))
 
 # color map
 # cmap = sns.diverging_palette(0, 230, 90, 60, as_cmap=True)
@@ -27,12 +27,12 @@ ax.tick_params(left=False, bottom=False)
 # ticks
 # yticks = [i.upper() for i in df.index]
 # xticks = [i.upper() for i in df.columns]
-plt.yticks(plt.yticks()[0], labels=[], rotation=0)
+plt.yticks(plt.yticks()[0], labels=[])
 plt.xticks(plt.xticks()[0], labels=[])
-# title
-# title = 'CORRELATION MATRIX'
-# plt.title(title, loc='left', fontsize=18)
-
+plt.title("Latent vector correlation matrix", loc='center', fontsize=18)
+plt.xlabel('MCF-7 profiles', fontsize=18)
+plt.ylabel('PC-3 profiles', fontsize=18)
 # Draw the heatmap with the mask and correct aspect ratio
 plt.savefig("an1.png")
+plt.tight_layout()
 plt.close(None)

@@ -5,33 +5,18 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
-import numpy as np
-from math import sqrt
 from numpy import zeros
-import sys
-import re
-import math
 from scipy import stats
 import pickle
 from pathlib import Path
-import time
 from random import randint
 import random
-from random import uniform
 from random import shuffle
-from tensorflow.python.keras import initializers
-from tensorflow.python.keras import layers
 from tensorflow.python.keras import regularizers
 import gc
 import pandas as pd
-from tensorflow.python.keras import backend as K
-import numpy as np
 # import the necessary packages
-from tensorflow.python.keras.layers import BatchNormalization
-from tensorflow.python.keras.layers import Conv1D
-from tensorflow.python.keras.layers import Conv1DTranspose
 from tensorflow.python.keras.layers import LeakyReLU
-from tensorflow.python.keras.layers import ReLU
 from tensorflow.python.keras.layers import Activation
 from tensorflow.python.keras.layers import Flatten
 from tensorflow.python.keras.layers import Dense
@@ -41,8 +26,6 @@ from tensorflow.python.keras.layers import Input
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras import backend as K
 from tensorflow import keras
-import numpy as np
-from sklearn.metrics import r2_score
 import matplotlib
 
 matplotlib.use("Agg")
@@ -50,7 +33,7 @@ from tensorflow.python.keras.optimizers import Adam
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import utils1
+from figures import utils1
 
 tf.compat.v1.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices('GPU')

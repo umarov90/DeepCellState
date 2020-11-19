@@ -1,13 +1,12 @@
 import os
 
-import utils1
+from figures import utils1
 from DL.VAE import VAE
 from DL.sampling import Sampling
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from tensorflow.python.keras import regularizers
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.layers import LeakyReLU
 from tensorflow.python.keras.layers import Flatten
@@ -16,7 +15,6 @@ from tensorflow.python.keras.layers import Reshape
 from tensorflow.python.keras.layers import Dropout
 from tensorflow.python.keras.layers import Input
 from tensorflow.python.keras.models import Model
-from tensorflow.python.keras.layers import Activation
 from tensorflow.keras import layers
 from tensorflow import keras
 from scipy import stats
@@ -27,7 +25,6 @@ import numpy as np
 import random
 import shutil
 import math
-from collections import deque
 
 # tf.compat.v1.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices('GPU')

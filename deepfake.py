@@ -41,19 +41,18 @@ use_existing = True
 def build(input_size, latent_dim):
     layer_units = [128, 64]
     input_shape = (input_size, 1)
-    drop_rate = 0.5
     inputs = Input(shape=input_shape)
     x = inputs
-    xd = Dropout(0.3, input_shape=(None, 978, 1))(x)
+    xd = Dropout(0.5, input_shape=(None, 978, 1))(x)
     x = xd
     for f in layer_units:
         x = Dense(f)(x)
         x = LeakyReLU(alpha=0.2)(x)
 
-    x = Dropout(drop_rate, input_shape=(None, input_size, layer_units[1]))(x)
+    x = Dropout(0.8, input_shape=(None, input_size, layer_units[1]))(x)
     shape = K.int_shape(x)
     x = Flatten()(x)
-    latent = Dense(latent_dim, activity_regularizer=regularizers.l1(10e-5))(x)
+    latent = Dense(latent_dim, use_bias=False)(x) # , activity_regularizer=regularizers.l1(10e-5)
     encoder = Model(inputs, latent, name="encoder")
     latent_inputs = Input(shape=(latent_dim,))
     xd_input = Input(shape=input_shape)
@@ -63,12 +62,12 @@ def build(input_size, latent_dim):
         x = Dense(f)(x)
         x = LeakyReLU(alpha=0.2)(x)
 
-    x = Dropout(drop_rate, input_shape=(None, input_size, layer_units[0]))(x)
+    x = Dropout(0.8, input_shape=(None, input_size, layer_units[0]))(x)
     # z = Add()([x, xd_input])
     z = tf.keras.layers.Concatenate(axis=-1)([x, xd_input])
     x = Dense(1)(z)
-    # outputs = x
-    outputs = Activation("tanh")(x)
+    outputs = x
+    # outputs = Activation("tanh")(x)
     decoder = Model([xd_input, latent_inputs], outputs, name="decoder")
     autoencoder = Model(inputs, decoder([xd, encoder(inputs)]), name="autoencoder")
     return autoencoder

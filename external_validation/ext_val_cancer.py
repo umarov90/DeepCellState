@@ -1,20 +1,12 @@
 import gc
 import math
 import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-import seaborn as sns
-
-from external_validation import pycage
 
 matplotlib.use("Agg")
-import cmapPy.pandasGEXpress.parse_gctx as pg
-import cmapPy.pandasGEXpress.subset_gctoo as sg
 import pandas as pd
 import os
 from tensorflow.python.keras.optimizers import Adam
 import deepfake
-from scipy.stats import zscore
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -23,10 +15,6 @@ import numpy as np
 from scipy import stats
 from tensorflow import keras
 import pickle
-from random import randint
-from numpy import inf
-import utils1
-from CellData import CellData
 from tensorflow.python.keras import backend as K
 import tensorflow as tf
 

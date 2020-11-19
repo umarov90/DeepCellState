@@ -10,8 +10,8 @@ import pandas as pd
 
 # plt.style.use('seaborn')
 
-
-fig, ax = plt.subplots(figsize=(10, 5))
+sns.set(font_scale=1.3, style='white')
+fig, ax = plt.subplots(figsize=(6, 5.5))
 
 df = pd.read_csv("../final_result (copy).tsv", sep="\t")
 
@@ -38,5 +38,5 @@ sns.barplot(x="Training set size", hue="Methods", y="PCC", data=df_long,
 # When creating the legend, only use the first two elements
 # to effectively remove the last two.
 #l = plt.legend(handles, labels, bbox_to_anchor=(1.01, 1), loc=1.5, borderaxespad=0.)
-
+plt.tight_layout()
 plt.savefig("bar.pdf")

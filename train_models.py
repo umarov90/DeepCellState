@@ -2,11 +2,10 @@ import os
 from scipy import stats
 
 import deepfake
-import utils1
+from figures import utils1
 from CellData import CellData
 import numpy as np
 import pandas as pd
-import pickle
 import random
 
 random.seed(0)
@@ -14,8 +13,8 @@ np.random.seed(0)
 
 # parameters
 wdir = "2cell_10fold/"
-test_folds = ["1"]
-# test_folds = range(1, 11)
+# test_folds = ["1"]
+test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
 #               "5-HT modulator_ids"]
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
@@ -35,7 +34,7 @@ os.chdir(data_folder)
 print(data_folder)
 df = pd.read_csv("../LINCS/GSE70138_Broad_LINCS_pert_info.txt", sep="\t")
 good = []
-bad = []
+pert_names = []
 for r, test_fold in enumerate(test_folds):
     test_fold = str(test_fold)
     tr_size = 1280
@@ -65,16 +64,16 @@ for r, test_fold in enumerate(test_folds):
         test_meta_object = cell_data.test_meta[i]
         if test_meta_object[2] != test_trt:
             continue
-        if test_meta_object[0] != "MCF7":
-            continue
+        # if test_meta_object[0] != "MCF7":
+        #     continue
         closest, closest_profile, mean_profile, all_profiles = cell_data.get_profile(cell_data.test_data,
                                                                                      cell_data.meta_dictionary_pert_test[
                                                                                          test_meta_object[1]],
                                                                                      test_meta_object)
         if closest_profile is None:
             continue
-        if test_meta_object[1] in seen_perts:
-            continue
+        # if test_meta_object[1] in seen_perts:
+        #     continue
         seen_perts.append(test_meta_object[1])
         test_profile = np.asarray([cell_data.test_data[i]])
         weights = cell_decoders[cell_data.test_meta[i][0]]
@@ -133,20 +132,21 @@ for r, test_fold in enumerate(test_folds):
         # print("Investigate")
         if dp > 0.8 and bp < 0.5:
             utils1.draw_profiles(test_profile, special_decoded, closest_profile,
-                             input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
+                                 input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
                                  + "_" + str(dp) + "_" + str(bp) + "_" +
-                                 utils1.fix(df.query('pert_id=="'+str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + ".pdf", "B")
+                                 utils1.fix(df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + ".svg")
             utils1.draw_scatter_profiles(test_profile, special_decoded, closest_profile,
                               "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
-                                 + "_" + str(dp) + "_" + str(bp) + "_" +
-                                 utils1.fix(df.query('pert_id=="'+str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + "_scatter.pdf", "C")
+                                         + "_" + str(dp) + "_" + str(bp) + "_" +
+                                         utils1.fix(df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + "_scatter.svg")
+        pert_names.append(df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0])
         # latent_vectors_1 = encoder.predict(closest_profile)
         # utils1.draw_vectors(latent_vectors_1, "vectors/" + str(i) + ".png")
 
         # if bp < 0.5 and dp > 0.6:
-        good_perts.append([test_meta_object[1], dp])
+        good_perts.append([test_meta_object[1], bp])
         # if dp > 0.55:
-        #     good.append(vector1)
+        good.append(vector1)
         # else:
         #     bad.append(vector1)
     # for i in range(len(cell_data.train_data)):
@@ -182,11 +182,10 @@ for r, test_fold in enumerate(test_folds):
     #     vectors.append(vector1)
     #     input_profiles.append(closest_profile.flatten())
     # np.savetxt("families/" + test_fold.split("_")[0], np.array(vectors), delimiter=',')
-    # np.savetxt("input_profiles", np.array(input_profiles), delimiter=',')
-    # np.savetxt("perts.csv", np.asarray(seen_perts), delimiter=",", fmt='%s')
-    # np.savetxt("good.np", np.array(good), delimiter=',')
+    np.savetxt("input_profiles.np", np.array(input_profiles), delimiter=',')
+    np.savetxt("perts.csv", np.asarray(pert_names), delimiter=",", fmt='%s')
+    np.savetxt("good.np", np.array(good), delimiter=',')
     # np.savetxt("bad.np", np.array(bad), delimiter=',')
-    # exit()
     # print("good perts: " + str(len(good_perts)))
     good_perts.sort(key=lambda x: x[1], reverse=True)
     # good_perts = good_perts[:6]

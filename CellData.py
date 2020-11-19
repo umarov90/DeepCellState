@@ -4,8 +4,6 @@ from random import randint
 from random import shuffle
 import pandas as pd
 
-import utils1
-
 random.seed(0)
 np.random.seed(0)
 

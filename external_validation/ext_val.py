@@ -1,11 +1,7 @@
 import math
 
-import cmapPy.pandasGEXpress.parse_gctx as pg
-import cmapPy.pandasGEXpress.subset_gctoo as sg
 import pandas as pd
 import os
-from tensorflow.python.keras.optimizers import Adam
-import deepfake
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -14,11 +10,8 @@ import numpy as np
 from scipy import stats
 from tensorflow import keras
 import pickle
-from random import randint
-from numpy import inf
-import utils1
+from figures import utils1
 from CellData import CellData
-from tensorflow.python.keras import backend as K
 
 
 def find_closest_corr(train_data, meta, input_profile, cell):
