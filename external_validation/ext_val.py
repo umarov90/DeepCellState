@@ -1,7 +1,11 @@
 import math
 
+import cmapPy.pandasGEXpress.parse_gctx as pg
+import cmapPy.pandasGEXpress.subset_gctoo as sg
 import pandas as pd
 import os
+from tensorflow.python.keras.optimizers import Adam
+import deepfake
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -10,8 +14,11 @@ import numpy as np
 from scipy import stats
 from tensorflow import keras
 import pickle
-from figures import utils1
+from random import randint
+from numpy import inf
+import utils1
 from CellData import CellData
+from tensorflow.python.keras import backend as K
 
 
 def find_closest_corr(train_data, meta, input_profile, cell):
@@ -44,8 +51,7 @@ def read_profile(file):
         profile = profile + 5
         # profile = (1000000 * profile) / np.sum(profile)
         profile_name = df.columns[i]
-        if profile_name.startswith(
-                "T") and "-6-" not in profile_name:  # in trt df[(df['Gene_Symbol'] == "HMGCR")][df.columns[i]]
+        if profile_name.startswith("T") and "-6-" not in profile_name:  # in trt df[(df['Gene_Symbol'] == "HMGCR")][df.columns[i]]
             profiles_trt.append(profile)
             trt_names.append(profile_name)
         elif profile_name.startswith("C"):
@@ -66,20 +72,20 @@ def read_profile(file):
     profile = np.zeros(trt_profile.shape)
     for i in range(len(genes)):
         if ctrl_profile[i] != 0 and trt_profile[i] != 0:
-            # if trt_profile[i] > 5 or ctrl_profile[i] > 5:
+            #if trt_profile[i] > 5 or ctrl_profile[i] > 5:
             try:
                 profile[i] = math.log(trt_profile[i] / ctrl_profile[i])
             except Exception as e:
                 print(e)
     # profile = 2 * (profile - np.min(profile)) / (np.max(profile) - np.min(profile)) - 1
-    profile = profile / max(np.max(profile), abs(np.min(profile)))
-    utils1.draw_one_profiles([profile], len(genes), file + "profile.png")
+    profile = profile / np.max(np.abs(profile))
+    # utils1.draw_one_profiles([profile], len(genes), file + "profile.png")
     profile = np.expand_dims(profile, axis=-1)
     # profile = (profile - np.min(profile)) / (np.max(profile) - np.min(profile))
     return profile
 
 
-data_folder = "/home/user/data/DeepFake/sub2/"
+data_folder = "/home/user/data/DeepFake/sub3/"
 os.chdir(data_folder)
 
 genes = np.loadtxt("../gene_symbols.csv", dtype="str")
@@ -88,10 +94,10 @@ if os.path.isfile("input_tr1.p"):
     input_data = pickle.load(open("input_tr.p", "rb"))
     output_data = pickle.load(open("output_tr.p", "rb"))
 else:
-    input_data = [read_profile("statins/H_Flu.csv"), read_profile("statins/H_Ato.csv"),
-                  read_profile("statins/H_Ros.csv"), read_profile("statins/H_Sim.csv")]
-    output_data = [read_profile("statins/M_Flu.csv"), read_profile("statins/M_Ato.csv"),
-                   read_profile("statins/M_Ros.csv"), read_profile("statins/M_Sim.csv")]
+    input_data = np.asarray([read_profile("../LINCS/statins/H_Flu.csv"), read_profile("../LINCS/statins/H_Ato.csv"),
+                             read_profile("../LINCS/statins/H_Ros.csv"), read_profile("../LINCS/statins/H_Sim.csv")])
+    output_data = np.asarray([read_profile("../LINCS/statins/M_Flu.csv"), read_profile("../LINCS/statins/M_Ato.csv"),
+                              read_profile("../LINCS/statins/M_Ros.csv"), read_profile("../LINCS/statins/M_Sim.csv")])
     pickle.dump(input_data, open("input_tr.p", "wb"))
     pickle.dump(output_data, open("output_tr.p", "wb"))
 
@@ -101,15 +107,19 @@ else:
     cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "1", 10)
     pickle.dump(cell_data, open("cell_data.p", "wb"))
 
-
 treatments = ["Fluvastatin", "Atrovastatin", "Rosuvastatin", "Simvastatin"]
 total_corr_base = 0
 total_corr_our = 0
+
+for i in range(len(input_data)):
+    output_data[i][np.isnan(output_data[i])] = 0
+    input_data[i][np.isnan(input_data[i])] = 0
+
 for i in range(len(input_data)):
     print(str(treatments[i]), end="\t")
     test_index = i
-    df_hepg2 = input_data[test_index]
-    df_mcf7 = output_data[test_index]
+    df_hepg2 = input_data[test_index] # - gm
+    df_mcf7 = output_data[test_index] # - gm
     # input_tr = np.delete(input_tr, test_index, axis=0)
     # output_tr = np.delete(output_tr, test_index, axis=0)
     # df_mcf7[np.where(genes == "HMGCR")]

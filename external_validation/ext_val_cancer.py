@@ -1,12 +1,17 @@
 import gc
 import math
 import matplotlib
-
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
 matplotlib.use("Agg")
+import cmapPy.pandasGEXpress.parse_gctx as pg
+import cmapPy.pandasGEXpress.subset_gctoo as sg
 import pandas as pd
 import os
 from tensorflow.python.keras.optimizers import Adam
 import deepfake
+from scipy.stats import zscore
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -15,6 +20,10 @@ import numpy as np
 from scipy import stats
 from tensorflow import keras
 import pickle
+from random import randint
+from numpy import inf
+import utils1
+from CellData import CellData
 from tensorflow.python.keras import backend as K
 import tensorflow as tf
 
@@ -54,13 +63,13 @@ def to_profile(df_data, cell, pert):
                 profile[i] = math.log(trt_data[i] / ctrl_data[i])
             except Exception as e:
                 print(e)
-    profile = profile / max(np.max(profile), abs(np.min(profile)))
+    # profile = profile / max(np.max(profile), abs(np.min(profile)))
     # utils1.draw_one_profiles([profile], len(genes), file + "profile.png")
     profile = np.expand_dims(profile, axis=-1)
     return profile
 
 
-data_folder = "/home/user/data/DeepFake/sub2/"
+data_folder = "/home/user/data/DeepFake/sub3/"
 os.chdir(data_folder)
 
 genes = np.loadtxt("../gene_symbols.csv", dtype="str")
@@ -69,11 +78,15 @@ df_data = pd.read_csv(input_file, sep="\t", comment='!', index_col="ID_REF")
 df_gpl = pd.read_csv("../data/GPL571-17391.txt", sep="\t", comment='#', index_col="ID")
 affy_dict = df_gpl["Gene Symbol"].to_dict()
 missed = 0
-
+count = 0
+seen = []
 for key, value in affy_dict.items():
     names = str(value).split(" /// ")
     for n in names:
         if n in genes:
+            if n not in seen:
+                count = count + 1
+                seen.append(n)
             affy_dict[key] = n
             break
     else:
@@ -133,11 +146,12 @@ for p in pert_ids:
     # bdata.append(stats.pearsonr(df_pc3.flatten(), df_mcf7.flatten())[0])
     # ddata.append(stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0])
 
-# for i, p in enumerate(pert_ids):
-#     output_data[i] = (output_data[i] - np.mean(np.asarray(output_data), axis=0))
-#     input_data[i] = (input_data[i] - np.mean(np.asarray(input_data), axis=0))
-#     output_data[i][np.isnan(output_data[i])] = 0
-#     input_data[i][np.isnan(input_data[i])] = 0
+for i in range(len(input_data)):
+    output_data[i] = (output_data[i] - np.mean(np.asarray(output_data), axis=0)) / np.std(np.asarray(output_data), axis=0)
+    input_data[i] = (input_data[i] - np.mean(np.asarray(input_data), axis=0)) / np.std(np.asarray(input_data), axis=0)
+    output_data[i][np.isnan(output_data[i])] = 0
+    input_data[i][np.isnan(input_data[i])] = 0
+
 #
 # for i, p in enumerate(pert_ids):
 #     output_data[i] = output_data[i] / np.max(np.abs(np.asarray(output_data)))
@@ -149,8 +163,6 @@ for p in pert_ids:
 for i, p in enumerate(pert_ids):
     df_mcf7 = output_data[i]
     df_pc3 = input_data[i]
-    df_mcf7[np.isnan(df_mcf7)] = 0
-    df_pc3[np.isnan(df_pc3)] = 0
     baseline_corr = baseline_corr + stats.pearsonr(df_pc3.flatten(), df_mcf7.flatten())[0]
     decoded = autoencoder.predict(np.asarray([df_pc3]))
     # print(get_intersection(decoded, df_mcf7, 50))
@@ -182,7 +194,7 @@ for i in range(len(pert_ids)):
     input_tr = np.delete(np.asarray(input_data), i, axis=0)
     output_tr = np.delete(np.asarray(output_data), i, axis=0)
     # autoencoder.trainable = True
-    autoencoder.fit(input_tr, output_tr, epochs=10, batch_size=1)
+    autoencoder.fit(input_tr, output_tr, epochs=15, batch_size=1)
     decoded = autoencoder.predict(np.asarray([test_input]))
     # print(get_intersection(decoded.flatten(), test_output, 50))
     corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
@@ -193,7 +205,7 @@ for i in range(len(pert_ids)):
     autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
     input_tr = np.delete(np.asarray(input_data), i, axis=0)
     output_tr = np.delete(np.asarray(output_data), i, axis=0)
-    autoencoder.fit(input_tr, output_tr, epochs=10, batch_size=1)
+    autoencoder.fit(input_tr, output_tr, epochs=15, batch_size=1)
     decoded = autoencoder.predict(np.asarray([test_input]))
     corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
     # cdata.append(corr)
