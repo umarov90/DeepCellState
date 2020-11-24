@@ -7,12 +7,12 @@ import pandas as pd
 random.seed(0)
 np.random.seed(0)
 
+
 class CellData:
     def __init__(self, data_file, test_fold, tr_size):
         data, meta, all_pert_ids = self.parse_data(data_file)
-        train_data, train_meta, test_data, test_meta, val_data, \
-        val_meta, cell_types, train_perts, val_perts, test_perts = \
-            self.split_data(data, meta, all_pert_ids, test_fold, tr_size)
+        train_data, train_meta, test_data, test_meta, val_data, val_meta,\
+            cell_types, train_perts, val_perts, test_perts = self.split_data(data, meta, all_pert_ids, test_fold, tr_size)
         meta_dictionary_pert = {}
         for pert_id in train_perts:
             meta_dictionary_pert[pert_id] = [[p, i] for i, p in enumerate(train_meta) if p[1] == pert_id]
@@ -60,15 +60,12 @@ class CellData:
         df = pd.read_csv(file, sep="\t")
         df.reset_index(drop=True, inplace=True)
         print("Total: " + str(df.shape))
-        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3")] #| (df['cell_id'] == "HEPG2")
+        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3")]  # | (df['cell_id'] == "HEPG2")
         print(df.groupby(['cell_id']).size())
-        # df = df[(df['pert_type'] == "trt_cp") | (df['pert_type'] == "trt_sh") |
-        #         (df['pert_type'] == "trt_sh.cgs") |
-        #         (df['pert_type'] == "trt_oe") | (df['pert_type'] == "trt_lig")]
         # df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") | (df['cell_id'] == "A375") |
         #         (df['cell_id'] == "HT29") | (df['cell_id'] == "HA1E") | (df['cell_id'] == "YAPC") |
         #         (df['cell_id'] == "HELA") ] # | (df['cell_id'] == "HEPG2")
-        # df = df[(df['pert_type'] == "trt_sh") | (df['pert_type'] == "trt_sh.cgs") | (df['pert_type'] == "trt_cp")]
+        # df = df[(df['pert_type'] == "trt_sh") | (df['pert_type'] == "trt_sh.cgs")]
         df = df[(df['pert_type'] == "trt_cp")]
         print("Cell filtering: " + str(df.shape))
         # df['pert_idose'] = df['pert_idose'].str.replace(' um','')
@@ -86,8 +83,8 @@ class CellData:
         df = df.groupby(['pert_id']).filter(lambda x: len(x) > 1)
         print("Pert filtering: " + str(df.shape))
         print(df.groupby(['cell_id']).size())
-        #df = df.groupby(['cell_id']).filter(lambda x: len(x) > 1000)
-        #print("Count filtering: " + str(df.shape))
+        # df = df.groupby(['cell_id']).filter(lambda x: len(x) > 1000)
+        # print("Count filtering: " + str(df.shape))
         # df = df.drop_duplicates(['cell_id', 'pert_id', 'pert_idose', 'pert_itime', 'pert_type'])
         # df = df.groupby(['cell_id', 'pert_id'], as_index=False).mean()
         # print("Merging: " + str(df.shape))
@@ -116,26 +113,22 @@ class CellData:
         np.random.shuffle(data)
         np.random.set_state(rng_state)
         np.random.shuffle(meta)
-        all_pert_ids_list = list(all_pert_ids)
-        shuffle(all_pert_ids_list)
 
-        test_perts = np.loadtxt("../LINCS/folds/" + str(test_fold), dtype='str')# _sh+cp
-        # test_perts = np.asarray([])
+        test_perts = np.loadtxt("../LINCS/folds/" + str(test_fold), dtype='str')  # _sh+cp
         z = list(all_pert_ids - set(test_perts))
         shuffle(z)
-        train_perts = all_pert_ids_list[:int(0.90 * len(z))]
-        val_perts = all_pert_ids_list[int(0.90 * len(z)):]
-        #val_perts = val_perts[:min(len(val_perts), int(0.1 * len(z)))]
+        split = int(0.95 * len(z))
+        train_perts = z[:split]
+        val_perts = z[split:]
+        # val_perts = val_perts[:min(len(val_perts), int(0.1 * len(z)))]
 
         train_data = np.asarray(
             [data[i] for i, m in enumerate(meta) if m[1] in train_perts])  # and m[0] != "A375"
         test_data = np.asarray([data[i] for i, m in enumerate(meta) if m[1] in test_perts])
-        #test_data = np.asarray([])
         val_data = np.asarray([data[i] for i, m in enumerate(meta) if m[1] in val_perts])
         train_meta = np.asarray(
             [m for i, m in enumerate(meta) if m[1] in train_perts])  # and m[0] != "A375"
         test_meta = np.asarray([m for i, m in enumerate(meta) if m[1] in test_perts])
-        #test_meta = np.asarray([])
         val_meta = np.asarray([m for i, m in enumerate(meta) if m[1] in val_perts])
 
         return train_data, train_meta, test_data, test_meta, val_data, val_meta, cell_types, train_perts, val_perts, test_perts

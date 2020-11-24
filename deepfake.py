@@ -1,7 +1,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow.python.keras import regularizers
 from tensorflow.python.keras import backend as K
@@ -11,11 +11,8 @@ from tensorflow.python.keras.layers import Dense
 from tensorflow.python.keras.layers import Reshape
 from tensorflow.python.keras.layers import Dropout
 from tensorflow.python.keras.layers import Input
-from tensorflow.python.keras.layers import Concatenate
-from tensorflow.python.keras.layers import Add
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.layers import Activation
-from tensorflow.keras.layers import BatchNormalization
 from tensorflow.python.keras.optimizers import Adam
 from tensorflow import keras
 from scipy import stats
@@ -32,14 +29,14 @@ assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
 config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 nb_total_epoch = 100
-nb_autoencoder_epoch = 100
+nb_autoencoder_epoch = 50
 nb_frozen_epoch = 100
 batch_size = 128
-use_existing = True
+use_existing = False
 
 
 def build(input_size, latent_dim):
-    layer_units = [128, 64]
+    layer_units = [512, 256]
     input_shape = (input_size, 1)
     inputs = Input(shape=input_shape)
     x = inputs
@@ -49,10 +46,10 @@ def build(input_size, latent_dim):
         x = Dense(f)(x)
         x = LeakyReLU(alpha=0.2)(x)
 
-    x = Dropout(0.8, input_shape=(None, input_size, layer_units[1]))(x)
     shape = K.int_shape(x)
     x = Flatten()(x)
-    latent = Dense(latent_dim, use_bias=False)(x) # , activity_regularizer=regularizers.l1(10e-5)
+    latent = Dense(latent_dim, use_bias=False, activity_regularizer=regularizers.l1(1e-7))(x)
+
     encoder = Model(inputs, latent, name="encoder")
     latent_inputs = Input(shape=(latent_dim,))
     xd_input = Input(shape=input_shape)
@@ -62,12 +59,10 @@ def build(input_size, latent_dim):
         x = Dense(f)(x)
         x = LeakyReLU(alpha=0.2)(x)
 
-    x = Dropout(0.8, input_shape=(None, input_size, layer_units[0]))(x)
-    # z = Add()([x, xd_input])
+    x = Dropout(0.5, input_shape=(None, input_size, layer_units[0]))(x)
     z = tf.keras.layers.Concatenate(axis=-1)([x, xd_input])
     x = Dense(1)(z)
-    outputs = x
-    # outputs = Activation("tanh")(x)
+    outputs = Activation("tanh")(x)
     decoder = Model([xd_input, latent_inputs], outputs, name="decoder")
     autoencoder = Model(inputs, decoder([xd, encoder(inputs)]), name="autoencoder")
     return autoencoder
@@ -79,7 +74,8 @@ def get_best_autoencoder(input_size, latent_dim, data, test_fold, n):
         if not os.path.exists("best_autoencoder_" + test_fold):
             os.makedirs("best_autoencoder_" + test_fold)
         for i in range(n):
-            print(test_fold + " run number - " + str(i + 1) + " ========================================================")
+            print(
+                test_fold + " run number - " + str(i + 1) + " ========================================================")
             autoencoder, cell_decoders, val_cor = get_autoencoder(input_size, latent_dim, data)
             if val_cor > best_cor:
                 best_cor = val_cor
@@ -141,8 +137,8 @@ def get_autoencoder(input_size, latent_dim, data):
             input_profiles = []
             output_profiles = []
             for i in range(len(cell_data)):
-                input_profiles.append(cell_data[i][0])
-                output_profiles.append(cell_data[i][0])
+                # input_profiles.append(cell_data[i][0])
+                # output_profiles.append(cell_data[i][0])
                 closest, profile, mean_profile, all_profiles = data.get_profile(data.train_data,
                                                                                 data.meta_dictionary_pert[
                                                                                     cell_data[i][1][1]],
@@ -215,8 +211,10 @@ def get_autoencoder(input_size, latent_dim, data):
         seen_perts = []
         for i in range(len(data.val_data)):
             val_meta_object = data.val_meta[i]
-            if val_meta_object[1] in seen_perts:
+            if val_meta_object[0] not in ["MCF7", "PC3"]:
                 continue
+            # if val_meta_object[1] in seen_perts:
+            #     continue
             closest, closest_profile, mean_profile, all_profiles = data.get_profile(data.val_data,
                                                                                     data.meta_dictionary_pert_val[
                                                                                         val_meta_object[1]],
