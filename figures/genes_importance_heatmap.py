@@ -10,7 +10,8 @@ matplotlib.use("Agg")
 data_folder = "/home/user/data/DeepFake/sub2/"
 os.chdir(data_folder)
 #a = np.genfromtxt("cells_genes_heat.csv", delimiter=",")
-a = pd.read_csv("clustermap.csv", header=0, index_col=0)
+df = pd.read_csv("clustermap.csv", header=0, index_col=0)
+a = df[df.columns[0:20]]
 #plt.imshow(a, cmap='hot', interpolation='nearest')
 ax = sns.clustermap(a)
 plt.savefig("heat.png")
