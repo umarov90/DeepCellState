@@ -1,11 +1,8 @@
 import math
-
-import cmapPy.pandasGEXpress.parse_gctx as pg
-import cmapPy.pandasGEXpress.subset_gctoo as sg
 import pandas as pd
 import os
-from tensorflow.python.keras.optimizers import Adam
-import deepfake
+
+from figures import utils1
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -14,11 +11,7 @@ import numpy as np
 from scipy import stats
 from tensorflow import keras
 import pickle
-from random import randint
-from numpy import inf
-import utils1
 from CellData import CellData
-from tensorflow.python.keras import backend as K
 
 
 def find_closest_corr(train_data, meta, input_profile, cell):
@@ -48,8 +41,8 @@ def read_profile(file):
             else:
                 profile.append(0)
         profile = np.asarray(profile)
-        profile = profile + 5
-        # profile = (1000000 * profile) / np.sum(profile)
+        profile = profile + 2
+        profile = (1000000 * profile) / np.sum(profile)
         profile_name = df.columns[i]
         if profile_name.startswith("T") and "-6-" not in profile_name:  # in trt df[(df['Gene_Symbol'] == "HMGCR")][df.columns[i]]
             profiles_trt.append(profile)
@@ -85,7 +78,7 @@ def read_profile(file):
     return profile
 
 
-data_folder = "/home/user/data/DeepFake/sub3/"
+data_folder = "/home/user/data/DeepFake/sub2/"
 os.chdir(data_folder)
 
 genes = np.loadtxt("../gene_symbols.csv", dtype="str")

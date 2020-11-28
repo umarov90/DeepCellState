@@ -24,10 +24,10 @@ def test_loss(prediction, ground_truth):
 
 data_folder = "/home/user/data/DeepFake/sub2/"
 os.chdir(data_folder)
-
-autoencoder = keras.models.load_model("best_autoencoder_ext_val/main_model/")
-cell_decoders = {"MCF7": pickle.load(open("best_autoencoder_ext_val/" + "MCF7" + "_decoder_weights", "rb")),
-                 "PC3": pickle.load(open("best_autoencoder_ext_val/" + "PC3" + "_decoder_weights", "rb"))}
+model = "best_autoencoder_12/"
+autoencoder = keras.models.load_model(model + "main_model/")
+cell_decoders = {"MCF7": pickle.load(open(model + "MCF7" + "_decoder_weights", "rb")),
+                 "PC3": pickle.load(open(model +  "PC3" + "_decoder_weights", "rb"))}
 encoder = autoencoder.get_layer("encoder")
 decoder = autoencoder.get_layer("decoder")
 
@@ -114,6 +114,9 @@ for tf in tf_data["MCF7"].keys():
     pcc = stats.pearsonr(tf_vals[tf], target_vals[tf])[0]
     print(tf + " - " + str(pcc))
 
+tf_chosen = list(tf_vals.keys())
+tf_chosen.sort(key=lambda x: max(tf_vals[x]), reverse=True)
+tf_chosen = tf_chosen[:10]
 tf_mapping = {"PC3": [], "MCF7": []}
 figure_vals_fold = {"MCF7": [], "Average": []}
 figure_vals_num = {"MCF7": [], "Average": []}
