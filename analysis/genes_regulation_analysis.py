@@ -81,8 +81,8 @@ for filename in os.listdir(directory):
                 df.rename(index={df.index[i]: gene_name_conversion2[df.index[i]]}, inplace=True)
         df = df[df.index.isin(symbols)]
         # remove the TF itself from the top targets
-        if filename in df.index:
-            df.drop([filename], inplace=True)
+        # if filename in df.index:
+        #     df.drop([filename], inplace=True)
         # pick top 50 targets
         tf_data["MCF7"][filename] = df.sort_values("MCF7", ascending=False).head(top_targets_num).index.to_list()
         tf_data["Average"][filename] = df.sort_values("Average", ascending=False).head(top_targets_num).index.to_list()
@@ -109,22 +109,15 @@ for i in range(len(cell_data.train_data)):
                 continue
             sum_target = sum_target + test_profile[0, list(symbols.flatten()).index(target), 0]
         target_vals.setdefault(tf, []).append(sum_target)
-    for tf in tf_data["Average"].keys():
-        tf_vals.setdefault(tf, []).append(test_profile[0, list(symbols.flatten()).index(tf), 0])
-        sum_target = 0
-        for j in range(min(1, len(tf_data["Average"][tf]))):
-            target = tf_data["Average"][tf][j]
-            if target == tf:
-                continue
-            sum_target = sum_target + test_profile[0, list(symbols.flatten()).index(target), 0]
-        target_vals.setdefault(tf, []).append(sum_target)
 
 for tf in tf_data["MCF7"].keys():
     pcc = stats.pearsonr(tf_vals[tf], target_vals[tf])[0]
     print(tf + " - " + str(pcc))
 
 tf_mapping = {"PC3": [], "MCF7": []}
-top_genes_mapping = {"PC3": [], "MCF7": []}
+figure_vals_fold = {"MCF7": [], "Average": []}
+figure_vals_num = {"MCF7": [], "Average": []}
+figure_tfs = []
 sum = 0
 n = 0
 downtf = "STAT1,PRKCQ".split(",")
@@ -136,6 +129,8 @@ for key in ["MCF7", "Average"]:  # ["PC3", "MCF7"]:
         tf_info = np.asarray(tf_vals[tf])
         if np.max(tf_info) < 0.5:
             continue
+        elif tf not in figure_tfs:
+            figure_tfs.append(tf)
         output_layer = autoencoder.output
         input_layer = autoencoder.input
         gene = np.where(symbols==tf)[0][0]
@@ -162,11 +157,19 @@ for key in ["MCF7", "Average"]:  # ["PC3", "MCF7"]:
         common_genes = list(set(tf_data[key][tf]).intersection(top_genes) - {tf})
         print(tf + " " + str(len(common_genes)))
         res = len(common_genes) / ((top_targets_num / 978) * top_genes_num)
+        figure_vals_fold[key].append(res)
+        figure_vals_num[key].append(len(common_genes))
         sum = sum + res
         n = n + 1
     print(key)
     print(sum/n)
     print("Done")
+
+figure_data = np.stack([figure_vals_num["Average"], figure_vals_fold["Average"],
+                        figure_vals_num["MCF7"], figure_vals_fold["MCF7"]], axis=0).transpose()
+df = pd.DataFrame(data=figure_data, index=figure_tfs, columns=["Average_num", "Average_fold", "MCF7_num", "MCF7_fold"])
+df.index.name = "TF"
+df.to_csv("../tf_analysis_data.csv")
 # for k in range(128):
 #     common_genes = list(set(top_genes_mapping["PC3"][k]).intersection(top_genes_mapping["MCF7"][k]))
 #     print(len(common_genes))

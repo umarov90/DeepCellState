@@ -22,7 +22,6 @@ from tensorflow import keras
 import pickle
 from random import randint
 from numpy import inf
-import utils1
 from CellData import CellData
 from tensorflow.python.keras import backend as K
 import tensorflow as tf
@@ -69,7 +68,7 @@ def to_profile(df_data, cell, pert):
     return profile
 
 
-data_folder = "/home/user/data/DeepFake/sub3/"
+data_folder = "/home/user/data/DeepFake/sub2/"
 os.chdir(data_folder)
 
 genes = np.loadtxt("../gene_symbols.csv", dtype="str")
