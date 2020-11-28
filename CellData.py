@@ -60,7 +60,7 @@ class CellData:
         df = pd.read_csv(file, sep="\t")
         df.reset_index(drop=True, inplace=True)
         print("Total: " + str(df.shape))
-        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3")]  # | (df['cell_id'] == "HEPG2")
+        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") ]  # | (df['cell_id'] == "HEPG2")
         print(df.groupby(['cell_id']).size())
         # df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") | (df['cell_id'] == "A375") |
         #         (df['cell_id'] == "HT29") | (df['cell_id'] == "HA1E") | (df['cell_id'] == "YAPC") |
@@ -101,8 +101,8 @@ class CellData:
         data = df.values
         # data = (data - np.min(data)) / (np.max(data) - np.min(data))
         # for i in range(len(data)):
-        data = data / max(np.max(data), abs(np.min(data)))
-        # data = 2 * (data - np.min(data)) / (np.max(data) - np.min(data))  - 1
+        #     data[i] = data[i] / np.max(np.abs(data[i]))
+        data = data / np.max(np.abs(data))
         data = np.expand_dims(data, axis=-1)
         return data, perts, all_pert_ids
 

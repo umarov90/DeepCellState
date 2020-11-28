@@ -12,7 +12,7 @@ random.seed(0)
 np.random.seed(0)
 
 # parameters
-wdir = "results_2cells/"
+wdir = "results_MOA"
 # test_folds = ["1"]
 test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
@@ -47,7 +47,7 @@ for r, test_fold in enumerate(test_folds):
     #     f.write("\n")
     # continue
     autoencoder, cell_decoders = deepfake.get_best_autoencoder(input_size, latent_dim,
-                                                               cell_data, test_fold, 10)
+                                                               cell_data, test_fold, 2)
     encoder = autoencoder.get_layer("encoder")
     results = {}
     img_count = 0
@@ -201,7 +201,7 @@ for r, test_fold in enumerate(test_folds):
                   str(results["Baseline performance (mean profile): "] / results["count"])
 
     with open("final_result.tsv", 'a+') as f:
-        f.write(str(tr_size) + "\t" + performance)
+        f.write(str(latent_dim) + "\t" + performance) # str(tr_size) + "\t" +
         f.write("\n")
 
     with open("all_results", 'a+') as f:

@@ -48,8 +48,7 @@ def build(input_size, latent_dim):
 
     shape = K.int_shape(x)
     x = Flatten()(x)
-    latent = Dense(latent_dim, use_bias=False, activity_regularizer=regularizers.l1(1e-7))(x)
-
+    latent = Dense(latent_dim, activity_regularizer=regularizers.l1(1e-7))(x)
     encoder = Model(inputs, latent, name="encoder")
     latent_inputs = Input(shape=(latent_dim,))
     xd_input = Input(shape=input_shape)
@@ -127,8 +126,10 @@ def get_autoencoder(input_size, latent_dim, data):
             print("freezing encoder")
             encoder.trainable = False
             decoder.trainable = True
-            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+            autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-5))
         for cell in cl:
+            # if cell not in ["MCF7", "PC3"]:
+            #     continue
             print(cell)
             cell_data = np.asarray([[data.train_data[i], data.train_meta[i]]
                                     for i, p in enumerate(data.train_meta) if p[0] == cell])
@@ -137,8 +138,8 @@ def get_autoencoder(input_size, latent_dim, data):
             input_profiles = []
             output_profiles = []
             for i in range(len(cell_data)):
-                # input_profiles.append(cell_data[i][0])
-                # output_profiles.append(cell_data[i][0])
+                input_profiles.append(cell_data[i][0])
+                output_profiles.append(cell_data[i][0])
                 closest, profile, mean_profile, all_profiles = data.get_profile(data.train_data,
                                                                                 data.meta_dictionary_pert[
                                                                                     cell_data[i][1][1]],
@@ -188,8 +189,10 @@ def get_autoencoder(input_size, latent_dim, data):
         # seen_perts = []
         # for i in range(len(data.train_data)):
         #     train_meta_object = data.train_meta[i]
-        #     if train_meta_object[1] in seen_perts:
+        #     if train_meta_object[0] not in ["MCF7", "PC3"]:
         #         continue
+        #     # if train_meta_object[1] in seen_perts:
+        #     #     continue
         #     closest, closest_profile, mean_profile, all_profiles = data.get_profile(data.train_data,
         #                                                                             data.meta_dictionary_pert[
         #                                                                                 train_meta_object[1]],
@@ -246,7 +249,7 @@ def get_autoencoder(input_size, latent_dim, data):
                 for cell in data.cell_types:
                     pickle.dump(cell_decoders[cell], open("best/" + cell + "_decoder_weights", "wb"))
 
-        if count > 3:
+        if count > 4:
             e = nb_total_epoch - 2
             count = 0
             for cell in data.cell_types:
