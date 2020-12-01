@@ -1,3 +1,4 @@
+import collections
 import math
 import os
 from sklearn.decomposition import PCA
@@ -12,15 +13,12 @@ from sklearn.manifold import TSNE
 matplotlib.use("Agg")
 import matplotlib as mpl
 
-data_folder = "/home/user/data/DeepFake/sub2/"
-os.chdir(data_folder)
+os.chdir(open("../data_dir").read())
 sns.set(font_scale=1.3, style='white')
-fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 4), constrained_layout=True)
-# fig.subplots_adjust(top=0.9)
-original_input = np.loadtxt("for_tsne_figure_profiles", delimiter=",")
-latent_vectors = np.loadtxt("for_tsne_figure_vectors", delimiter=",")
-perts = np.loadtxt("for_tsne_figure_perts_info", delimiter=",", dtype=np.str)
-# bad = np.loadtxt("bad.np", delimiter=",")
+fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 4), constrained_layout=True)
+original_input = np.loadtxt("figures_data/tsne_input.csv", delimiter=",")
+latent_vectors = np.loadtxt("figures_data/tsne_latent.csv", delimiter=",")
+perts = np.loadtxt("figures_data/tsne_perts.csv", delimiter=",", dtype=np.str)
 col = latent_vectors[:, -1]
 colors = []
 colors.extend(["good"] * len(latent_vectors))
@@ -44,7 +42,7 @@ chosen_perts = []
 latent_vectors = TSNE(n_components=2, random_state=0, perplexity=5, metric=pcc).fit_transform(latent_vectors[:, :-1])
 original_input = TSNE(n_components=2, random_state=0, perplexity=5, metric=pcc).fit_transform(original_input)
 center = [-3, -60]
-special_perts = ["tacalcitol", "nefazodone", "eperezolid", "valrubicin", "alvespimycin"]
+special_perts = ["valrubicin", "alvespimycin", "nefazadone", "tacalcitol", "atorvastatin"]
 other = []
 index_list = {}
 for i, p in enumerate(latent_vectors):
@@ -52,15 +50,16 @@ for i, p in enumerate(latent_vectors):
     # if dist < 15:
     #     chosen_perts.append(perts[i])
 
-    if perts[i][0] in special_perts:
-        if perts[i][1] == "MCF7":
-            index_list.setdefault(special_perts.index(perts[i][0]), [0, 0])[0] = i
+    if perts[i][1] in special_perts:
+        if perts[i][0] == "MCF7":
+            index_list.setdefault(special_perts.index(perts[i][1]), [0, 0])[0] = i
         else:
-            index_list.setdefault(special_perts.index(perts[i][0]), [0, 0])[1] = i
+            index_list.setdefault(special_perts.index(perts[i][1]), [0, 0])[1] = i
     else:
         other.append(i)
 
-np.savetxt("cluster_perts.csv", np.asarray(chosen_perts), delimiter=",", fmt='%s')
+index_list = dict(sorted(index_list.items()))
+# np.savetxt("cluster_perts.csv", np.asarray(chosen_perts), delimiter=",", fmt='%s')
 #
 # sns.scatterplot(x=A1[:, 0], y=A1[:, 1], hue=colors)
 # plt.savefig("good_vs_bad_PCA.png")
@@ -83,13 +82,8 @@ for i, key in enumerate(index_list.keys()):
     sns.scatterplot(x=[latent_vectors[:, 0][index_list[key]][1]], y=[latent_vectors[:, 1][index_list[key]][1]],
                     s=80, alpha=1, ax=axes[1], marker=5, color=colors[i])
 axes[1].set_title("Latent space")
-# Put the legend out of the figure
-custom = [Line2D([], [], marker='.', color='b', linestyle='None'),
-          Line2D([], [], marker='.', color='r', linestyle='None'),
-          Line2D([], [], marker='.', color='r', linestyle='None'),
-          Line2D([], [], marker='.', color='r', linestyle='None')]
 
-special_perts = ["Tacalcitol", "Nefazodone", "Eperezolid", "Valrubicin", "Alvespimycin"]
+special_perts = [p.title() for p in special_perts]
 legend_elements = [Line2D([0], [0], color='w', markerfacecolor=colors[i],
                           label=special_perts[i], marker='.', markersize=20)
                    for i in range(len(special_perts))]
@@ -107,4 +101,4 @@ plt.legend(handles=legend_elements, bbox_to_anchor=(1.05, 1), loc='upper left') 
 # ax.grid(b=True, which='minor', color='black', linewidth=0.5)
 fig.suptitle('t-SNE visualization of MCF-7 and PC-3 profiles', fontsize=18)
 # plt.tight_layout()
-plt.savefig("tsne.png")
+plt.savefig("figures/tsne.png")

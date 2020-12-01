@@ -1,15 +1,11 @@
 import numpy as np
-import random
 from random import randint
 from random import shuffle
 import pandas as pd
 
-random.seed(0)
-np.random.seed(0)
-
 
 class CellData:
-    def __init__(self, data_file, test_fold, tr_size):
+    def __init__(self, data_file, test_fold, tr_size=None):
         data, meta, all_pert_ids = self.parse_data(data_file)
         train_data, train_meta, test_data, test_meta, val_data, val_meta,\
             cell_types, train_perts, val_perts, test_perts = self.split_data(data, meta, all_pert_ids, test_fold, tr_size)
@@ -60,11 +56,11 @@ class CellData:
         df = pd.read_csv(file, sep="\t")
         df.reset_index(drop=True, inplace=True)
         print("Total: " + str(df.shape))
-        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") ]  # | (df['cell_id'] == "HEPG2")
+        # df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") ]  # | (df['cell_id'] == "HEPG2")
         print(df.groupby(['cell_id']).size())
-        # df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") | (df['cell_id'] == "A375") |
-        #         (df['cell_id'] == "HT29") | (df['cell_id'] == "HA1E") | (df['cell_id'] == "YAPC") |
-        #         (df['cell_id'] == "HELA") ] # | (df['cell_id'] == "HEPG2")
+        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") | (df['cell_id'] == "A375") |
+                (df['cell_id'] == "HT29") | (df['cell_id'] == "HA1E") | (df['cell_id'] == "YAPC") |
+                (df['cell_id'] == "HELA") ] # | (df['cell_id'] == "HEPG2")
         # df = df[(df['pert_type'] == "trt_sh") | (df['pert_type'] == "trt_sh.cgs")]
         df = df[(df['pert_type'] == "trt_cp")]
         print("Cell filtering: " + str(df.shape))
@@ -114,7 +110,7 @@ class CellData:
         np.random.set_state(rng_state)
         np.random.shuffle(meta)
 
-        test_perts = np.loadtxt("../LINCS/folds/" + str(test_fold), dtype='str')  # _sh+cp
+        test_perts = np.loadtxt(test_fold, dtype='str')
         z = list(all_pert_ids - set(test_perts))
         shuffle(z)
         split = int(0.95 * len(z))

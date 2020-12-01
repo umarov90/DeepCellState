@@ -170,9 +170,6 @@ for i, p in enumerate(pert_ids):
           + " : " + str(stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0]))
     bdata.append(stats.pearsonr(df_pc3.flatten(), df_mcf7.flatten())[0])
     ddata.append(stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0])
-pickle.dump(pert_ids, open("pert_ids.p", "wb"))
-pickle.dump(bdata, open("bdata.p", "wb"))
-pickle.dump(ddata, open("ddata.p", "wb"))
 
 baseline_corr = baseline_corr / len(pert_ids)
 our_corr = our_corr / len(pert_ids)
@@ -193,7 +190,7 @@ for i in range(len(pert_ids)):
     input_tr = np.delete(np.asarray(input_data), i, axis=0)
     output_tr = np.delete(np.asarray(output_data), i, axis=0)
     # autoencoder.trainable = True
-    autoencoder.fit(input_tr, output_tr, epochs=15, batch_size=1)
+    autoencoder.fit(input_tr, output_tr, epochs=25, batch_size=3)
     decoded = autoencoder.predict(np.asarray([test_input]))
     # print(get_intersection(decoded.flatten(), test_output, 50))
     corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
@@ -204,7 +201,7 @@ for i in range(len(pert_ids)):
     autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
     input_tr = np.delete(np.asarray(input_data), i, axis=0)
     output_tr = np.delete(np.asarray(output_data), i, axis=0)
-    autoencoder.fit(input_tr, output_tr, epochs=15, batch_size=1)
+    autoencoder.fit(input_tr, output_tr, epochs=25, batch_size=3)
     decoded = autoencoder.predict(np.asarray([test_input]))
     corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
     # cdata.append(corr)
@@ -220,4 +217,7 @@ tcorr = tcorr / len(pert_ids)
 print("DeepCellState*: " + str(tcorr))
 tcorrb = tcorrb / len(pert_ids)
 print("DeepCellState*b: " + str(tcorrb))
-pickle.dump(cdata, open("cdata.p", "wb"))
+
+df = pd.DataFrame(list(zip(bdata, ddata, cdata)),
+                  columns=['Baseline', 'DeepCellState', "DeepCellState*"], index=pert_ids)
+df.to_csv("../figures_data/cancer_drugs.tsv", sep="\t")

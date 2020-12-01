@@ -1,10 +1,5 @@
-import math
-
 import numpy as np
 import matplotlib
-from matplotlib.lines import Line2D
-
-matplotlib.use("agg")
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.patches as mpatches
@@ -14,13 +9,11 @@ import os
 import pandas as pd
 
 plt.rcParams['hatch.linewidth'] = 2
-# plt.style.use('seaborn')
-data_folder = "/home/user/data/DeepFake/"
-os.chdir(data_folder)
-
+matplotlib.use("agg")
+os.chdir(open("../data_dir").read())
 sns.set(font_scale=1.3, style='white')
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 8))
-df = pd.read_csv("tf_analysis_data.csv")  # TF
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 4))
+df = pd.read_csv("figures_data/tf_analysis_data.csv")  # TF
 
 
 def binomial_statistic(overlap_num):
@@ -68,12 +61,12 @@ sns.barplot(x="TF", hue="Targets", y="Fold Enrichment", data=df_long, ax=ax)
 ax.get_legend().remove()
 # , palette=cm.gist_heat(col_vals_avg)
 for i, bar in enumerate(ax.patches):
-    if i < 13:  # Average
+    if i < len(df["TF"]):  # Average
         bar.set_color(scalarmappaple.to_rgba(col_vals_avg[i]))
         # bar.set_edgecolor("white")
         bar.set_hatch("\\\\")
     else:  # MCF7
-        index = i - 13
+        index = i - len(df["TF"])
         bar.set_color(scalarmappaple.to_rgba(col_vals_mcf7[index]))
         bar.set_hatch("xx")
     bar.set_edgecolor("black")
@@ -81,11 +74,11 @@ for i, bar in enumerate(ax.patches):
 
 custom_lines = [mpatches.Patch(hatch="\\\\", edgecolor="black", facecolor="#fed8b1"),
                 mpatches.Patch(hatch="xx", edgecolor="black", facecolor="#fed8b1")]
-plt.legend(handles=custom_lines, title='', loc='upper right', labels=['Average', 'MCF-7'])
+plt.legend(handles=custom_lines, title='', loc='upper left', labels=['Average', 'MCF-7'])
 cb = fig.colorbar(scalarmappaple, ax=ax)
 cb.ax.invert_yaxis()
 cb.ax.set_ylabel('P-value', labelpad=10)
 plt.title("TF target genes overlap", loc='center', fontsize=18)
 plt.tight_layout()
-plt.savefig("figures/bar_tf.png")
+plt.savefig("figures/bar_tf.svg")
 

@@ -55,9 +55,9 @@ def draw_profiles(test_profile, decoded, closest_profile, input_size, output_fil
     vmin = -maxv # np.min(all_data)
     vmax = +maxv # np.max(all_data)
     names = ["Baseline", "DeepCellState", "Ground truth"]
-    fig, axes = plt.subplots(nrows=len(img_data), ncols=1, figsize=(12, 4))
-    fig.subplots_adjust(left=0.2, bottom=None, right=0.85, top=0.8, wspace=0.4, hspace=1.4)
-    cbar_ax = fig.add_axes([0.9, 0.15, 0.05, 0.7])
+    fig, axes = plt.subplots(nrows=len(img_data), ncols=1, figsize=(10, 4))
+    fig.subplots_adjust(left=0.2, bottom=None, right=0.88, top=0.8, wspace=0.4, hspace=1.4)
+    cbar_ax = fig.add_axes([.90, .15, .02, .6])
     cmap = sns.diverging_palette(250, 15, s=75, l=40, sep=1, as_cmap=True)
     for j, ax in enumerate(axes.flatten()):
         if (j == 0):
@@ -79,7 +79,7 @@ def draw_profiles(test_profile, decoded, closest_profile, input_size, output_fil
         for label in hm.get_yticklabels():
             label.set_visible(False)
         # ax.set_title(names[i], x=-1.05)
-    fig.suptitle('MCF-7 alvespimycin response prediction using PC-3 response', fontsize=18)
+    fig.suptitle('MCF-7 pentobarbital response prediction using PC-3 response', fontsize=18)
     plt.savefig(output_file)
     plt.close(None)
 
@@ -166,7 +166,7 @@ def draw_scatter_profiles(test_profile, decoded, closest_profile, output_file):
     col2 = np.abs(decoded - test_profile).flatten()
     vmin = 0
     vmax = max(np.max(col1), np.max(col2))
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 4))
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 4))
     # sns.kdeplot(x=closest_profile.flatten(), y=test_profile.flatten(), fill=True, ax=axes[0], levels=5)
     sns.scatterplot(x=closest_profile.flatten(), y=test_profile.flatten(), ax=axes[0], c=col1,
                     cmap=cmap, vmin=vmin, vmax=vmax, s=20)
@@ -185,17 +185,17 @@ def draw_scatter_profiles(test_profile, decoded, closest_profile, output_file):
     # fig.suptitle(letter, size=20, weight='bold', horizontalalignment='left', x=0.1, y=.95)
 
     # Make space for the colorbar
-    fig.subplots_adjust(right=.92, top=0.8)
+    fig.subplots_adjust(right=0.88, top=0.8)
 
     # Define a new Axes where the colorbar will go
-    cax = fig.add_axes([.94, .25, .02, .6])
+    cax = fig.add_axes([.90, .15, .02, .6])
 
     # Get a mappable object with the same colormap as the data
     points = plt.scatter([], [], c=[], vmin=vmin, vmax=vmax, cmap=cmap)
 
     # Draw the colorbar
     fig.colorbar(points, cax=cax)
-    fig.suptitle('MCF-7 alvespimycin response prediction using PC-3 response', fontsize=18)
+    fig.suptitle('MCF-7 pentobarbital response prediction using PC-3 response', fontsize=18)
     plt.savefig(output_file)
     plt.close(None)
 

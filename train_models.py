@@ -7,14 +7,15 @@ from CellData import CellData
 import numpy as np
 import pandas as pd
 import random
+import pickle
 
 random.seed(0)
 np.random.seed(0)
 
 # parameters
-wdir = "results_MOA"
-# test_folds = ["1"]
-test_folds = range(1, 11)
+wdir = "results_2cells"
+test_folds = ["1"]
+# test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
 #               "5-HT modulator_ids"]
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
@@ -31,15 +32,17 @@ def test_loss(prediction, ground_truth):
 
 
 os.chdir(data_folder)
-copyfile("/home/user/PycharmProjects/DeepFake/deepfake.py", "temp")
+# copyfile("/home/user/PycharmProjects/DeepFake/deepfake.py", "temp")
 print(data_folder)
 df = pd.read_csv("../LINCS/GSE70138_Broad_LINCS_pert_info.txt", sep="\t")
 good = []
-pert_names = []
+tsne_perts = []
+tsne_input = []
+tsne_latent = []
 for r, test_fold in enumerate(test_folds):
     test_fold = str(test_fold)
     tr_size = 1280
-    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", test_fold, tr_size)
+    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "../LINCS/folds/" + test_fold)
     # pickle.dump(cell_data, open("cell_data.p", "wb"))
     # cell_data = pickle.load(open("cell_data.p", "rb"))
     # with open("sizes.txt", 'a+') as f:
@@ -121,43 +124,27 @@ for r, test_fold in enumerate(test_folds):
         results["closest profile correlation is: "] = results.get("closest profile correlation is: ", 0) + \
                                                       stats.pearsonr(closest_profile.flatten(), test_profile.flatten())[
                                                           0]
-        # bp = stats.pearsonr(mean_profile.flatten(), test_profile.flatten())[0]
-        # dp = stats.pearsonr(special_decoded.flatten(), test_profile.flatten())[0]
-        # vector1 = encoder.predict(np.asarray(test_profile)).flatten()
-        # vector1 = np.append(vector1, dp)
-        # vectors.append(vector1)
-        # input_profiles.append(closest_profile.flatten())
-        # vector1 = encoder.predict(closest_profile)
-        # vector2 = encoder.predict(test_profile)
-        # vpcc = stats.pearsonr(vector1.flatten(), vector2.flatten())[0]
-        # print("Investigate")
-        # if dp > 0.8 and bp < 0.5:
-        #     utils1.draw_profiles(test_profile, special_decoded, closest_profile,
-        #                          input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
-        #                          + "_" + str(dp) + "_" + str(bp) + "_" +
-        #                          utils1.fix(df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + ".svg")
-        #     utils1.draw_scatter_profiles(test_profile, special_decoded, closest_profile,
-        #                       "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
-        #                                  + "_" + str(dp) + "_" + str(bp) + "_" +
-        #                                  utils1.fix(df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + "_scatter.svg")
-        # pert_names.append(df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0])
-        # latent_vectors_1 = encoder.predict(closest_profile)
-        # utils1.draw_vectors(latent_vectors_1, "vectors/" + str(i) + ".png")
-
-        # if bp < 0.5 and dp > 0.6:
-        # good_perts.append([test_meta_object[1], bp])
-        # if dp > 0.55:
-        # good.append(vector1)
-        # else:
-        #     bad.append(vector1)
-    # np.savetxt("families/" + test_fold.split("_")[0], np.array(vectors), delimiter=',')
-    # np.savetxt("input_profiles.np", np.array(input_profiles), delimiter=',')
-    # np.savetxt("perts.csv", np.asarray(pert_names), delimiter=",", fmt='%s')
-    # np.savetxt("good.np", np.array(good), delimiter=',')
-    # np.savetxt("bad.np", np.array(bad), delimiter=',')
-    # print("good perts: " + str(len(good_perts)))
-    # good_perts.sort(key=lambda x: x[1], reverse=True)
-    # good_perts = good_perts[:6]
+        bp = stats.pearsonr(mean_profile.flatten(), test_profile.flatten())[0]
+        dp = stats.pearsonr(special_decoded.flatten(), test_profile.flatten())[0]
+        if dp > 0.8: # and bp < 0.5
+            os.makedirs("profiles", exist_ok=True)
+            utils1.draw_profiles(test_profile, special_decoded, closest_profile,
+                                 input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
+                                 + "_" + str(dp) + "_" + str(bp) + "_" +
+                                 utils1.fix(df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + ".svg")
+            utils1.draw_scatter_profiles(test_profile, special_decoded, closest_profile,
+                              "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
+                                         + "_" + str(dp) + "_" + str(bp) + "_" +
+                                         utils1.fix(df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + "_scatter.svg")
+        tsne_perts.append(["PC3" if test_meta_object[0] == "MCF7" else "MCF7",
+                           df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]])
+        tsne_input.append(closest_profile.flatten())
+        tsne_latent.append(encoder.predict(closest_profile).flatten())
+        good_perts.append([test_meta_object[1], bp])
+    np.savetxt("../figures_data/tsne_perts.csv", np.array(tsne_perts), delimiter=',', fmt="%s")
+    np.savetxt("../figures_data/tsne_input.csv", np.array(tsne_input), delimiter=',')
+    np.savetxt("../figures_data/tsne_latent.csv", np.array(tsne_latent), delimiter=',')
+    good_perts.sort(key=lambda x: x[1], reverse=True)
     # matrix = np.zeros((len(good_perts), len(good_perts)))
     # for i in range(len(good_perts)):
     #     for j in range(len(good_perts)):
@@ -174,14 +161,7 @@ for r, test_fold in enumerate(test_folds):
     # for i in range(len(good_perts)):
     #     good_perts[i] = df.query('pert_id=="'+str(good_perts[i][0]) + '"')["pert_iname"].tolist()[0]
     # df1 = pd.DataFrame(data=matrix, index=good_perts, columns=good_perts)
-    # df1.to_pickle("latent.p")
-    #
-    # exit()
-
-    # sc = (results["Our multi-correlation is: "] - results["Baseline correlation (mean profile): "]) / results["count"]
-    # with open("fam.txt", 'a+') as f:
-    #     f.write(test_fold + " , " + str(sc))
-    #     f.write("\n")
+    # df1.to_pickle("../figures_data/latent.p")
 
     print(" Done")
     with open("log.txt", 'a+') as f:

@@ -1,29 +1,19 @@
-import numpy as np
+import os
 import matplotlib
-
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
-import string
 import pandas as pd
 
+os.chdir(open("../data_dir").read())
 sns.set(font_scale=1.3, style='white')
 fig, axs = plt.subplots(1,1,figsize=(6,4))
-# plt.style.use('default')
-# types = ["MoA validation", "Unseen cell type", "Multiple cell types", "shRNA for LoF"]
-types = ["10-fold validation"]
-# axs = axs.flat
-ax = axs
 
-#for n, ax in enumerate(axs):
 n = 0
-df = pd.read_csv("../all_results.csv", sep=",")
-df = df[(df['Validation'] == types[n])]
-# df_long = pd.melt(df, "Validation", var_name="Methods", value_name="PCC")
-# plt.style.use('seaborn-whitegrid')
-# sns.set(style="whitegrid")
-sns.violinplot(data=df, ax=ax, palette="Set2") # x="Validation", hue="Methods", y="PCC", data=df_long, , fliersize=0
-ax.set(ylabel='Average PCC')
+df = pd.read_csv("figures_data/2cell_all_results.tsv", sep="\t")
+df = df[['Baseline', 'DeepCellState']]
+sns.violinplot(data=df, ax=axs, palette="Set2") # x="Validation", hue="Methods", y="PCC", data=df_long, , fliersize=0
+axs.set(ylabel='Average PCC')
 # ax.set(ylabel='Average PCC')
 # plt.ylabel('Average PCC', fontsize=18)
 # sns.stripplot(data=df, ax=ax, jitter=0.05, palette="Set2", dodge=True, linewidth=1, size=5, alpha=0.2)
@@ -36,4 +26,4 @@ ax.set(ylabel='Average PCC')
 # plt.subplots_adjust(hspace=0.3)
 plt.title("MCF-7 and PC-3 response prediction", loc='center', fontsize=18)
 plt.tight_layout()
-plt.savefig("vio.svg")
+plt.savefig("figures/violin.svg")
