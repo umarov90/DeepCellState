@@ -1,7 +1,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow.python.keras import regularizers
 from tensorflow.python.keras import backend as K
@@ -32,15 +32,18 @@ nb_total_epoch = 100
 nb_autoencoder_epoch = 50
 nb_frozen_epoch = 100
 batch_size = 128
-use_existing = False
+use_existing = True
 
-
+# 2 cell  dropout 0.5, 0.8, l1 1e-7
+# 7 cell and trt_sh  dropout 0.2, 0.8, l1 1e-8
+# cell type excluded dropout 0.5, 0.8, l1 1e-7
+# ext_val dropout 0.5, 0.9, l1 1e-5
 def build(input_size, latent_dim):
     layer_units = [512, 256]
     input_shape = (input_size, 1)
     inputs = Input(shape=input_shape)
     x = inputs
-    xd = Dropout(0.5, input_shape=(None, 978, 1))(x)
+    xd = Dropout(0.2, input_shape=(None, 978, 1))(x)
     x = xd
     for f in layer_units:
         x = Dense(f)(x)
@@ -48,7 +51,7 @@ def build(input_size, latent_dim):
 
     shape = K.int_shape(x)
     x = Flatten()(x)
-    latent = Dense(latent_dim, activity_regularizer=regularizers.l1(1e-7))(x)
+    latent = Dense(latent_dim, activity_regularizer=regularizers.l1(1e-8))(x)
     encoder = Model(inputs, latent, name="encoder")
     latent_inputs = Input(shape=(latent_dim,))
     xd_input = Input(shape=input_shape)
@@ -58,7 +61,7 @@ def build(input_size, latent_dim):
         x = Dense(f)(x)
         x = LeakyReLU(alpha=0.2)(x)
 
-    x = Dropout(0.5, input_shape=(None, input_size, layer_units[0]))(x)
+    x = Dropout(0.8, input_shape=(None, input_size, layer_units[0]))(x)
     z = tf.keras.layers.Concatenate(axis=-1)([x, xd_input])
     x = Dense(1)(z)
     outputs = Activation("tanh")(x)
