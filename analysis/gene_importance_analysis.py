@@ -2,7 +2,7 @@ import os
 import random
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow import keras
 import numpy as np
@@ -14,18 +14,13 @@ import pandas as pd
 from collections import Counter
 from CellData import CellData
 
-
-def test_loss(prediction, ground_truth):
-    return np.sqrt(np.mean((prediction - ground_truth) ** 2))
-
-
 os.chdir(open("../data_dir").read())
-cell_data = CellData("LINCS/lincs_phase_1_2.tsv", "LINCS/folds/1")
+cell_data = CellData("LINCS/lincs_phase_1_2.tsv", "LINCS/folds/ext_val")
 pickle.dump(cell_data, open("cell_data.p", "wb"))
 # cell_data = pickle.load(open("cell_data.p", "rb"))
 input_size = 978
 latent_dim = 128
-model = "results_7cells_1/best_autoencoder_1/"
+model = "sub2/best_autoencoder_ext_val/"
 autoencoder = keras.models.load_model(model + "main_model/")
 cell_decoders = {}
 for cell in cell_data.cell_types:
@@ -45,23 +40,23 @@ for cn, key in enumerate(cell_data.cell_types):
     total_results = []
     seen_perts = []
     num = 0
-    for i in range(len(cell_data.test_data)):
+    for i in range(len(cell_data.train_data)):
         if i % 100 == 0:
             print(str(i) + " - ", end="", flush=True)
-        test_meta_object = cell_data.test_meta[i]
-        if test_meta_object[0] != key:
+        train_meta_object = cell_data.train_meta[i]
+        if train_meta_object[0] != key:
             continue
-        closest, closest_profile, mean_profile, all_profiles = cell_data.get_profile(cell_data.test_data,
-                                                                                     cell_data.meta_dictionary_pert_test[
-                                                                                         test_meta_object[1]],
-                                                                                     test_meta_object)
+        closest, closest_profile, mean_profile, all_profiles = cell_data.get_profile(cell_data.train_data,
+                                                                                     cell_data.meta_dictionary_pert[
+                                                                                         train_meta_object[1]],
+                                                                                     train_meta_object)
         if closest_profile is None:
             continue
-        if test_meta_object[1] in seen_perts:
+        if train_meta_object[1] in seen_perts:
             continue
-        seen_perts.append(test_meta_object[1])
+        seen_perts.append(train_meta_object[1])
         num = num + 1
-        test_profile = np.asarray([cell_data.test_data[i]])
+        test_profile = np.asarray([cell_data.train_data[i]])
         # results = []
         # for k in range(1000):
         #     damaged_profile = np.zeros(closest_profile.shape)
@@ -74,20 +69,20 @@ for cn, key in enumerate(cell_data.cell_types):
         # results.sort(key=lambda x: x[0], reverse=True)
         # results = results[:10]
         # total_results.extend(results)
-        # results = []
-        # for k in range(100):
-        #     damaged_profile = closest_profile.copy()
-        #     inds = random.sample(range(0, 978), 100)
-        #     damaged_profile[0, inds] = 0
-        #     decoded1 = autoencoder.predict(damaged_profile)
-        #     pcc = stats.pearsonr(decoded1[0, inds].flatten(), test_profile[0, inds].flatten())[0]
-        #     results.append([pcc, inds])
-        # results.sort(key=lambda x: x[0], reverse=True)
-        # results = results[:10]
-        # total_results.extend(results)
-    # total_results = np.asarray([r[1] for r in total_results]).flatten()
-    # pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
-    total_results = pickle.load(open("total_results_" + key + ".p", "rb"))
+        results = []
+        for k in range(100):
+            damaged_profile = closest_profile.copy()
+            inds = random.sample(range(0, 978), 100)
+            damaged_profile[0, inds] = 0
+            decoded1 = autoencoder.predict(damaged_profile)
+            pcc = stats.pearsonr(decoded1[0, inds].flatten(), test_profile[0, inds].flatten())[0]
+            results.append([pcc, inds])
+        results.sort(key=lambda x: x[0], reverse=True)
+        results = results[:10]
+        total_results.extend(results)
+    total_results = np.asarray([r[1] for r in total_results]).flatten()
+    pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
+    # total_results = pickle.load(open("total_results_" + key + ".p", "rb"))
     c = Counter(total_results)
     for i in range(978):
         importance_scores[cn][i] = c[i] / num
@@ -115,3 +110,6 @@ df = df.reindex(df.sum().sort_values(ascending=True).index, axis=1)
 # df.drop(df.columns[df.apply(lambda col: col.max() < 1.1)], axis=1, inplace=True)
 
 df.to_csv("figures_data/clustermap.csv")
+
+np.savetxt("figures_data/top_genes_dif.tsv", list(set(final_sets["PC3"]) - set(final_sets["MCF7"])), delimiter="\t", fmt="%s")
+np.savetxt("figures_data/top_genes_inter.tsv", list(set(final_sets["MCF7"]) & set(final_sets["PC3"])), delimiter="\t", fmt="%s")

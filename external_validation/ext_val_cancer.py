@@ -68,13 +68,12 @@ def to_profile(df_data, cell, pert):
     return profile
 
 
-data_folder = "/home/user/data/DeepFake/sub2/"
-os.chdir(data_folder)
+os.chdir(open("../data_dir").read().strip())
 
-genes = np.loadtxt("../gene_symbols.csv", dtype="str")
-input_file = "../data/GSE116436_series_matrix.txt"
+genes = np.loadtxt("gene_symbols.csv", dtype="str")
+input_file = "data/GSE116436_series_matrix.txt"
 df_data = pd.read_csv(input_file, sep="\t", comment='!', index_col="ID_REF")
-df_gpl = pd.read_csv("../data/GPL571-17391.txt", sep="\t", comment='#', index_col="ID")
+df_gpl = pd.read_csv("data/GPL571-17391.txt", sep="\t", comment='#', index_col="ID")
 affy_dict = df_gpl["Gene Symbol"].to_dict()
 missed = 0
 count = 0
@@ -111,10 +110,10 @@ for i in range(len(meta)):
 
 
 #cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "1", 10)
-autoencoder = keras.models.load_model("best_autoencoder_ext_val/main_model")
-cell_decoders = {}
-cell_decoders["MCF7"] = pickle.load(open("best_autoencoder_ext_val/" + "MCF7" + "_decoder_weights", "rb"))
-cell_decoders["PC3"] = pickle.load(open("best_autoencoder_ext_val/" + "PC3" + "_decoder_weights", "rb"))
+model = "sub2/best_autoencoder_ext_val/"
+autoencoder = keras.models.load_model(model + "main_model/")
+cell_decoders = {"MCF7": pickle.load(open(model + "MCF7" + "_decoder_weights", "rb")),
+                 "PC3": pickle.load(open(model +  "PC3" + "_decoder_weights", "rb"))}
 autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
 
 # closest_cor, info = find_closest_corr(cell_data.train_data, cell_data.train_meta, df_pc3, "PC3")
@@ -151,7 +150,7 @@ for i in range(len(input_data)):
     output_data[i][np.isnan(output_data[i])] = 0
     input_data[i][np.isnan(input_data[i])] = 0
 
-#
+
 # for i, p in enumerate(pert_ids):
 #     output_data[i] = output_data[i] / np.max(np.abs(np.asarray(output_data)))
 #     input_data[i] = input_data[i] / np.max(np.abs(np.asarray(input_data)))
@@ -175,16 +174,16 @@ baseline_corr = baseline_corr / len(pert_ids)
 our_corr = our_corr / len(pert_ids)
 print("Baseline: " + str(baseline_corr))
 print("DeepCellState: " + str(our_corr))
-# exit()
+exit()
 tcorr = 0
 tcorrb = 0
 for i in range(len(pert_ids)):
     test_input = input_data[i]
     test_output = output_data[i]
-    autoencoder = keras.models.load_model("best_autoencoder_ext_val/main_model")
+    autoencoder = keras.models.load_model(model + "main_model/")
     cell_decoders = {}
-    cell_decoders["MCF7"] = pickle.load(open("best_autoencoder_ext_val/" + "MCF7" + "_decoder_weights", "rb"))
-    cell_decoders["PC3"] = pickle.load(open("best_autoencoder_ext_val/" + "PC3" + "_decoder_weights", "rb"))
+    cell_decoders["MCF7"] = pickle.load(open(model + "MCF7" + "_decoder_weights", "rb"))
+    cell_decoders["PC3"] = pickle.load(open(model + "PC3" + "_decoder_weights", "rb"))
     autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
 
     input_tr = np.delete(np.asarray(input_data), i, axis=0)
@@ -207,7 +206,7 @@ for i in range(len(pert_ids)):
     # cdata.append(corr)
     tcorrb = tcorrb + corr
 
-     # Needed to prevent Keras memory leak
+    # Needed to prevent Keras memory leak
     del autoencoder
     gc.collect()
     K.clear_session()
@@ -220,4 +219,4 @@ print("DeepCellState*b: " + str(tcorrb))
 
 df = pd.DataFrame(list(zip(bdata, ddata, cdata)),
                   columns=['Baseline', 'DeepCellState', "DeepCellState*"], index=pert_ids)
-df.to_csv("../figures_data/cancer_drugs.tsv", sep="\t")
+df.to_csv("figures_data/cancer_drugs.tsv", sep="\t")

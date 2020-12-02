@@ -78,7 +78,7 @@ def read_profile(file):
     return profile
 
 
-data_folder = "/home/user/data/DeepFake/sub2/"
+data_folder = "/home/user/data/DeepFake/val_model/"
 os.chdir(data_folder)
 
 genes = np.loadtxt("../gene_symbols.csv", dtype="str")
@@ -97,7 +97,7 @@ else:
 if os.path.isfile("cell_data.p"):
     cell_data = pickle.load(open("cell_data.p", "rb"))
 else:
-    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "1", 10)
+    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "../LINCS/folds/1", 10)
     pickle.dump(cell_data, open("cell_data.p", "wb"))
 
 treatments = ["Fluvastatin", "Atrovastatin", "Rosuvastatin", "Simvastatin"]
