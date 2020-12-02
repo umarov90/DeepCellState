@@ -69,20 +69,20 @@ for cn, key in enumerate(cell_data.cell_types):
         # results.sort(key=lambda x: x[0], reverse=True)
         # results = results[:10]
         # total_results.extend(results)
-        results = []
-        for k in range(100):
-            damaged_profile = closest_profile.copy()
-            inds = random.sample(range(0, 978), 100)
-            damaged_profile[0, inds] = 0
-            decoded1 = autoencoder.predict(damaged_profile)
-            pcc = stats.pearsonr(decoded1[0, inds].flatten(), test_profile[0, inds].flatten())[0]
-            results.append([pcc, inds])
-        results.sort(key=lambda x: x[0], reverse=True)
-        results = results[:10]
-        total_results.extend(results)
-    total_results = np.asarray([r[1] for r in total_results]).flatten()
-    pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
-    # total_results = pickle.load(open("total_results_" + key + ".p", "rb"))
+        # results = []
+        # for k in range(1000):
+        #     damaged_profile = closest_profile.copy()
+        #     inds = random.sample(range(0, 978), 100)
+        #     damaged_profile[0, inds] = 0
+        #     decoded1 = autoencoder.predict(damaged_profile)
+        #     pcc = stats.pearsonr(decoded1[0, inds].flatten(), test_profile[0, inds].flatten())[0]
+        #     results.append([pcc, inds])
+        # results.sort(key=lambda x: x[0], reverse=True)
+        # results = results[:10]
+        # total_results.extend(results)
+    # total_results = np.asarray([r[1] for r in total_results]).flatten()
+    # pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
+    total_results = pickle.load(open("total_results_" + key + ".p", "rb"))
     c = Counter(total_results)
     for i in range(978):
         importance_scores[cn][i] = c[i] / num
@@ -94,6 +94,7 @@ for cn, key in enumerate(cell_data.cell_types):
     final_sets[key] = top_genes
     np.savetxt("figures_data/top_genes_" + key + ".tsv", top_genes, delimiter="\t", fmt="%s")
 
+importance_scores = importance_scores / np.max(np.abs(importance_scores))
 df = pd.DataFrame.from_records(importance_scores)
 rows = []
 for cn, cell in enumerate(cell_data.cell_types):
