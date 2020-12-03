@@ -16,8 +16,8 @@ df = pd.read_csv("figures_data/2cell_all_results.tsv", sep="\t")
 df["fold_improvement"] = df['DeepCellState'] / df['Baseline']
 ax = sns.displot(df, x="fold_improvement", element="step", hue="Cell type", binwidth=0.25)
 ax.set(xlim=(0, 7))
-ax.set(xlabel='Fold improvement')
+ax.set(xlabel='Fold change')
 
-plt.title("MCF-7 and PC-3 response prediction", loc='center', fontsize=18)
+plt.title("DeepCellState improvement over baseline", loc='center', fontsize=18)
 plt.tight_layout()
 plt.savefig("figures/dist.svg")

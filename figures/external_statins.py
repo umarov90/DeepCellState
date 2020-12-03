@@ -14,9 +14,9 @@ df_long = pd.melt(df, "Statin", var_name="Methods", value_name="PCC")
 sns.barplot(x="Statin", hue="Methods", y="PCC", data=df_long, palette="Set2", ax=axs)
 axs.legend_.set_title(None)
 axs.set(ylabel='Average PCC')
+axs.set(xlabel='')
 plt.title("Statin response prediction", loc='center', fontsize=18)
 plt.tight_layout()
 plt.savefig("figures/ext_statins.svg")
-plt.close(None)
 
 

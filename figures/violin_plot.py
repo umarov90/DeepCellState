@@ -4,6 +4,7 @@ matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+from matplotlib.ticker import FormatStrFormatter
 
 os.chdir(open("../data_dir").read())
 sns.set(font_scale=1.3, style='white')
@@ -14,6 +15,7 @@ df = pd.read_csv("figures_data/2cell_all_results.tsv", sep="\t")
 df = df[['Baseline', 'DeepCellState']]
 sns.violinplot(data=df, ax=axs, palette="Set2") # x="Validation", hue="Methods", y="PCC", data=df_long, , fliersize=0
 axs.set(ylabel='Average PCC')
+axs.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 # ax.set(ylabel='Average PCC')
 # plt.ylabel('Average PCC', fontsize=18)
 # sns.stripplot(data=df, ax=ax, jitter=0.05, palette="Set2", dodge=True, linewidth=1, size=5, alpha=0.2)

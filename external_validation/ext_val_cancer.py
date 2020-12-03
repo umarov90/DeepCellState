@@ -14,7 +14,7 @@ import deepfake
 from scipy.stats import zscore
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 from scipy import stats
@@ -174,7 +174,7 @@ baseline_corr = baseline_corr / len(pert_ids)
 our_corr = our_corr / len(pert_ids)
 print("Baseline: " + str(baseline_corr))
 print("DeepCellState: " + str(our_corr))
-exit()
+# exit()
 tcorr = 0
 tcorrb = 0
 for i in range(len(pert_ids)):
@@ -189,22 +189,22 @@ for i in range(len(pert_ids)):
     input_tr = np.delete(np.asarray(input_data), i, axis=0)
     output_tr = np.delete(np.asarray(output_data), i, axis=0)
     # autoencoder.trainable = True
-    autoencoder.fit(input_tr, output_tr, epochs=25, batch_size=3)
+    autoencoder.fit(input_tr, output_tr, epochs=10, batch_size=3)
     decoded = autoencoder.predict(np.asarray([test_input]))
     # print(get_intersection(decoded.flatten(), test_output, 50))
     corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
     cdata.append(corr)
     tcorr = tcorr + corr
 
-    autoencoder = deepfake.build(978, 64)
-    autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-    input_tr = np.delete(np.asarray(input_data), i, axis=0)
-    output_tr = np.delete(np.asarray(output_data), i, axis=0)
-    autoencoder.fit(input_tr, output_tr, epochs=25, batch_size=3)
-    decoded = autoencoder.predict(np.asarray([test_input]))
-    corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
-    # cdata.append(corr)
-    tcorrb = tcorrb + corr
+    # autoencoder = deepfake.build(978, 64)
+    # autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
+    # input_tr = np.delete(np.asarray(input_data), i, axis=0)
+    # output_tr = np.delete(np.asarray(output_data), i, axis=0)
+    # autoencoder.fit(input_tr, output_tr, epochs=5, batch_size=3)
+    # decoded = autoencoder.predict(np.asarray([test_input]))
+    # corr = stats.pearsonr(decoded.flatten(), test_output.flatten())[0]
+    # # cdata.append(corr)
+    # tcorrb = tcorrb + corr
 
     # Needed to prevent Keras memory leak
     del autoencoder
@@ -214,8 +214,8 @@ for i in range(len(pert_ids)):
 
 tcorr = tcorr / len(pert_ids)
 print("DeepCellState*: " + str(tcorr))
-tcorrb = tcorrb / len(pert_ids)
-print("DeepCellState*b: " + str(tcorrb))
+# tcorrb = tcorrb / len(pert_ids)
+# print("DeepCellState*b: " + str(tcorrb))
 
 df = pd.DataFrame(list(zip(bdata, ddata, cdata)),
                   columns=['Baseline', 'DeepCellState', "DeepCellState*"], index=pert_ids)

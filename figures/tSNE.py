@@ -73,6 +73,8 @@ for i, key in enumerate(index_list.keys()):
     sns.scatterplot(x=[original_input[:, 0][index_list[key]][1]], y=[original_input[:, 1][index_list[key]][1]],
                     s=80, alpha=1, ax=axes[0], marker=5, color=colors[i])
 axes[0].set_title("Input space")
+axes[0].set_xlabel("t-SNE1")
+axes[0].set_ylabel("t-SNE2")
 
 sns.scatterplot(x=latent_vectors[:, 0][other], y=latent_vectors[:, 1][other], s=20, alpha=0.2, ax=axes[1],
                 label='_nolegend_')
@@ -82,6 +84,8 @@ for i, key in enumerate(index_list.keys()):
     sns.scatterplot(x=[latent_vectors[:, 0][index_list[key]][1]], y=[latent_vectors[:, 1][index_list[key]][1]],
                     s=80, alpha=1, ax=axes[1], marker=5, color=colors[i])
 axes[1].set_title("Latent space")
+axes[1].set_xlabel("t-SNE1")
+axes[1].set_ylabel("t-SNE2")
 
 special_perts = [p.title() for p in special_perts]
 legend_elements = [Line2D([0], [0], color='w', markerfacecolor=colors[i],
@@ -101,4 +105,4 @@ plt.legend(handles=legend_elements, bbox_to_anchor=(1.05, 1), loc='upper left') 
 # ax.grid(b=True, which='minor', color='black', linewidth=0.5)
 fig.suptitle('t-SNE visualization of MCF-7 and PC-3 profiles', fontsize=18)
 # plt.tight_layout()
-plt.savefig("figures/tsne.png")
+plt.savefig("figures/tsne.pdf")

@@ -56,15 +56,9 @@ def draw_profiles(test_profile, decoded, closest_profile, input_size, output_fil
     vmax = +maxv # np.max(all_data)
     names = ["Baseline", "DeepCellState", "Ground truth"]
     fig, axes = plt.subplots(nrows=len(img_data), ncols=1, figsize=(10, 4))
-    fig.subplots_adjust(left=0.2, bottom=None, right=0.88, top=0.8, wspace=0.4, hspace=1.4)
-    cbar_ax = fig.add_axes([.90, .15, .02, .6])
     cmap = sns.diverging_palette(250, 15, s=75, l=40, sep=1, as_cmap=True)
     for j, ax in enumerate(axes.flatten()):
-        if (j == 0):
-            hm = sns.heatmap(img_data[j].reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
-                             cbar_ax=cbar_ax, vmin=vmin, vmax=vmax)
-        else:
-            hm = sns.heatmap(img_data[j].reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
+        hm = sns.heatmap(img_data[j].reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
                              cbar=False, vmin=vmin, vmax=vmax)
         # ax.set_xticklabels(xlabels)
         ax.set_ylabel(names[j], rotation=45)
@@ -79,6 +73,17 @@ def draw_profiles(test_profile, decoded, closest_profile, input_size, output_fil
         for label in hm.get_yticklabels():
             label.set_visible(False)
         # ax.set_title(names[i], x=-1.05)
+    plt.tight_layout()
+    # Make space for the colorbar
+    fig.subplots_adjust(right=0.84, top=0.8, wspace=0.35)
+
+    # Define a new Axes where the colorbar will go
+    cax = fig.add_axes([.90, .2, .02, .6])
+    cax.set_xlabel('Expression')
+    # Get a mappable object with the same colormap as the data
+    points = plt.scatter([], [], c=[], vmin=vmin, vmax=vmax, cmap=cmap)
+    # Draw the colorbar
+    fig.colorbar(points, cax=cax)
     fig.suptitle('MCF-7 pentobarbital response prediction using PC-3 response', fontsize=18)
     plt.savefig(output_file)
     plt.close(None)
@@ -99,7 +104,7 @@ def draw_batch_profiles(profiles, input_size, output_file):
     vmin = np.min(all_data)
     vmax = np.max(all_data)
     fig, axes = plt.subplots(nrows=len(img_data), ncols=1, figsize=(14, 4))
-    fig.subplots_adjust(left=None, bottom=None, right=0.85, top=0.9, wspace=0.4, hspace=1.4)
+    fig.subplots_adjust(left=None, bottom=None, right=0.86, top=0.9, wspace=0.4, hspace=1.4)
     cbar_ax = fig.add_axes([0.9, 0.15, 0.05, 0.7])
     cmap = sns.diverging_palette(250, 15, s=75, l=40, sep=1, as_cmap=True)
     for j, ax in enumerate(axes.flatten()):
@@ -171,7 +176,7 @@ def draw_scatter_profiles(test_profile, decoded, closest_profile, output_file):
     sns.scatterplot(x=closest_profile.flatten(), y=test_profile.flatten(), ax=axes[0], c=col1,
                     cmap=cmap, vmin=vmin, vmax=vmax, s=20)
     axes[0].set_title("Baseline")
-    # axes[0].set(xlabel='Baseline gene value', ylabel='True gene value')
+    axes[0].set(xlabel='Predicted', ylabel='Observed')
     # sns.kdeplot(x=decoded.flatten(), y=test_profile.flatten(), fill=True, ax=axes[1], levels=5)
     sns.scatterplot(x=decoded.flatten(), y=test_profile.flatten(), ax=axes[1], c=col2,
                     cmap=cmap, vmin=vmin, vmax=vmax, s=20)
@@ -180,22 +185,22 @@ def draw_scatter_profiles(test_profile, decoded, closest_profile, output_file):
     # plt.xlim(-1, 1)
 
     axes[1].set_title("DeepCellState")
-    # axes[0].set(xlabel='Predicted gene value', ylabel='True gene value')
+    axes[1].set(xlabel='Predicted', ylabel='Observed')
     # axes[0].text(-1, 1.1, letter, transform=ax.transAxes, size=20, weight='bold')
     # fig.suptitle(letter, size=20, weight='bold', horizontalalignment='left', x=0.1, y=.95)
-
+    plt.tight_layout()
     # Make space for the colorbar
-    fig.subplots_adjust(right=0.88, top=0.8)
+    fig.subplots_adjust(right=0.84, top=0.8, wspace=0.35)
 
     # Define a new Axes where the colorbar will go
-    cax = fig.add_axes([.90, .15, .02, .6])
-
+    cax = fig.add_axes([.90, .2, .02, .6])
+    cax.set_xlabel('Error')
     # Get a mappable object with the same colormap as the data
     points = plt.scatter([], [], c=[], vmin=vmin, vmax=vmax, cmap=cmap)
 
     # Draw the colorbar
     fig.colorbar(points, cax=cax)
-    fig.suptitle('MCF-7 pentobarbital response prediction using PC-3 response', fontsize=18)
+    fig.suptitle('Predicted MCF-7 pentobarbital response gene values', fontsize=18)
     plt.savefig(output_file)
     plt.close(None)
 

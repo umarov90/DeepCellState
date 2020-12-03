@@ -16,7 +16,7 @@ tensorflow.compat.v1.disable_eager_execution()
 
 
 os.chdir(open("../data_dir").read())
-model = "for_tf/best_autoencoder_4/"
+model = "sub2/best_autoencoder_ext_val/"
 autoencoder = keras.models.load_model(model + "main_model/")
 cell_decoders = {"MCF7": pickle.load(open(model + "MCF7" + "_decoder_weights", "rb")),
                  "PC3": pickle.load(open(model +  "PC3" + "_decoder_weights", "rb"))}
@@ -55,8 +55,9 @@ for filename in os.listdir(directory):
         df = df.drop(mcf7_columns, 1)
         df = df.drop(avg_columns, 1)
         df = df[df.index.isin(symbols)]
-        gene_list = df.sort_values("MCF7", ascending=False).head(top_targets_num)[df.MCF7 != 0].index.to_list()
-        if len(gene_list) < top_targets_num:
+        top = df.sort_values("MCF7", ascending=False).head(top_targets_num)[df.MCF7 > 100]
+        gene_list = top.index.to_list()
+        if len(gene_list) < top_genes_num:
             continue
         tf_data["MCF7"][filename] = gene_list
         tf_data["Average"][filename] = df.sort_values("Average", ascending=False).head(top_targets_num).index.to_list()
@@ -110,7 +111,9 @@ for key in ["MCF7", "Average"]:
         idx = (-1 * pb).argsort()
         top_genes = symbols[idx[:top_genes_num]].tolist() # + symbols[idx[-10:]].tolist()
         common_genes = list(set(tf_data[key][tf]).intersection(top_genes))
-        res = len(common_genes) / ((top_targets_num / 978) * top_genes_num)
+        top_targets_num_final = min(top_targets_num, len(tf_data[key][tf]))
+        # top_targets_num_final = top_targets_num
+        res = len(common_genes) / ((top_targets_num_final / 978) * top_genes_num)
         print(tf + " " + str(res) + " " + str(np.max(tf_info)) + " " + str(np.min(tf_info)) + " " +
               str(np.mean(tf_info)) + " " + str(np.std(tf_info)) + " " + str(np.median(tf_info)))
         figure_vals_fold[key].append(res)

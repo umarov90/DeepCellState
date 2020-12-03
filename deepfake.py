@@ -32,7 +32,7 @@ nb_total_epoch = 100
 nb_autoencoder_epoch = 50
 nb_frozen_epoch = 100
 batch_size = 32
-use_existing = False
+use_existing = True
 
 # 2 cell  dropout 0.5, 0.8, l1 1e-7
 # 7 cell and trt_sh  dropout 0.2, 0.8, l1 1e-8

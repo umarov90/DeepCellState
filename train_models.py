@@ -13,8 +13,8 @@ random.seed(0)
 np.random.seed(0)
 
 # parameters
-wdir = "val_model"
-test_folds = ["ext_val"]
+wdir = "results_2cells"
+test_folds = ["1"]
 # test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
 #               "5-HT modulator_ids"]
@@ -140,7 +140,8 @@ for r, test_fold in enumerate(test_folds):
                            df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]])
         tsne_input.append(closest_profile.flatten())
         tsne_latent.append(encoder.predict(closest_profile).flatten())
-        good_perts.append([test_meta_object[1], bp])
+        if test_meta_object[0] == "MCF7":
+            good_perts.append([test_meta_object[1], bp])
     np.savetxt("../figures_data/tsne_perts.csv", np.array(tsne_perts), delimiter=',', fmt="%s")
     np.savetxt("../figures_data/tsne_input.csv", np.array(tsne_input), delimiter=',')
     np.savetxt("../figures_data/tsne_latent.csv", np.array(tsne_latent), delimiter=',')

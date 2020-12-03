@@ -12,7 +12,7 @@ plt.rcParams['hatch.linewidth'] = 2
 matplotlib.use("agg")
 os.chdir(open("../data_dir").read())
 sns.set(font_scale=1.3, style='white')
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 4))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6))
 df = pd.read_csv("figures_data/tf_analysis_data.csv")  # TF
 
 
@@ -49,7 +49,7 @@ def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=-1):
     return new_cmap
 
 
-colormap = truncate_colormap(sns.color_palette("gist_heat_r", as_cmap=True), 0.2, 0.8)
+colormap = truncate_colormap(sns.color_palette("rocket_r", as_cmap=True), 0.1, 0.9)
 # colormap = sns.color_palette("gist_heat_r", as_cmap=True)
 scalarmappaple = cm.ScalarMappable(norm=matplotlib.colors.LogNorm(vmin=min_p, vmax=max_p), cmap=colormap)
 
@@ -80,5 +80,5 @@ cb.ax.invert_yaxis()
 cb.ax.set_ylabel('P-value', labelpad=10)
 plt.title("TF target genes overlap", loc='center', fontsize=18)
 plt.tight_layout()
-plt.savefig("figures/bar_tf.svg")
+plt.savefig("figures/bar_tf.pdf")
 

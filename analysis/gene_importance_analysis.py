@@ -94,7 +94,7 @@ for cn, key in enumerate(cell_data.cell_types):
     final_sets[key] = top_genes
     np.savetxt("figures_data/top_genes_" + key + ".tsv", top_genes, delimiter="\t", fmt="%s")
 
-importance_scores = importance_scores / np.max(np.abs(importance_scores))
+importance_scores = (importance_scores - np.min(importance_scores)) / (np.max(importance_scores) - np.min(importance_scores))
 df = pd.DataFrame.from_records(importance_scores)
 rows = []
 for cn, cell in enumerate(cell_data.cell_types):
