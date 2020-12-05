@@ -56,7 +56,7 @@ for cn, key in enumerate(cell_data.cell_types):
             continue
         seen_perts.append(train_meta_object[1])
         num = num + 1
-        test_profile = np.asarray([cell_data.train_data[i]])
+        test_profile = np.asarray([cell_data.train_data[i]]).flatten()
         # results = []
         # for k in range(1000):
         #     damaged_profile = np.zeros(closest_profile.shape)
@@ -70,15 +70,17 @@ for cn, key in enumerate(cell_data.cell_types):
         # results = results[:10]
         # total_results.extend(results)
         results = []
-        for k in range(100):
+        for k in range(20):
             damaged_profile = closest_profile.copy()
             inds = random.sample(range(0, 978), 100)
             damaged_profile[0, inds] = 0
-            decoded1 = autoencoder.predict(damaged_profile)
-            pcc = stats.pearsonr(decoded1[0, inds].flatten(), test_profile[0, inds].flatten())[0]
+            decoded1 = autoencoder.predict(damaged_profile).flatten()
+            decoded1 = np.delete(decoded1, inds)
+            test_profile_copy = np.delete(test_profile, inds)
+            pcc = stats.pearsonr(decoded1, test_profile_copy)[0]
             results.append([pcc, inds])
         results.sort(key=lambda x: x[0], reverse=False)
-        results = results[:10]
+        results = results[:2]
         total_results.extend(results)
     total_results = np.asarray([r[1] for r in total_results]).flatten()
     pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))

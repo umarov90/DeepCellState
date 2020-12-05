@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import seaborn as sns
 from matplotlib.colors import LogNorm
+from matplotlib.ticker import ScalarFormatter
 matplotlib.use("Agg")
 
 
@@ -50,6 +51,13 @@ cm.cax.set_xlabel('Score')
 plt.setp(cm.ax_heatmap.get_xticklabels(), rotation=45, ha="right",
          rotation_mode="anchor")
 cm.ax_heatmap.tick_params(left=False, bottom=True)
+
+for axis in [cm.cax.xaxis, cm.cax.yaxis]:
+    formatter = ScalarFormatter()
+    formatter.set_scientific(False)
+    axis.set_major_formatter(formatter)
+    axis.set_minor_formatter(matplotlib.ticker.FormatStrFormatter("%.1f"))
+
 cm.fig.suptitle('Gene importance per decoder, top 20 genes', fontsize=18)
 plt.savefig("figures/heat.svg")
 
