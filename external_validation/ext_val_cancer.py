@@ -12,7 +12,7 @@ import os
 from tensorflow.python.keras.optimizers import Adam
 import deepfake
 from scipy.stats import zscore
-
+from scipy.stats import ttest_ind
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -113,7 +113,7 @@ for i in range(len(meta)):
 model = "sub2/best_autoencoder_ext_val/"
 autoencoder = keras.models.load_model(model + "main_model/")
 cell_decoders = {"MCF7": pickle.load(open(model + "MCF7" + "_decoder_weights", "rb")),
-                 "PC3": pickle.load(open(model +  "PC3" + "_decoder_weights", "rb"))}
+                 "PC3": pickle.load(open(model + "PC3" + "_decoder_weights", "rb"))}
 autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
 
 # closest_cor, info = find_closest_corr(cell_data.train_data, cell_data.train_meta, df_pc3, "PC3")
@@ -174,6 +174,7 @@ baseline_corr = baseline_corr / len(pert_ids)
 our_corr = our_corr / len(pert_ids)
 print("Baseline: " + str(baseline_corr))
 print("DeepCellState: " + str(our_corr))
+print("Improvement: " + str(our_corr/baseline_corr))
 # exit()
 tcorr = 0
 tcorrb = 0
@@ -216,7 +217,10 @@ tcorr = tcorr / len(pert_ids)
 print("DeepCellState*: " + str(tcorr))
 # tcorrb = tcorrb / len(pert_ids)
 # print("DeepCellState*b: " + str(tcorrb))
-
+t, p = ttest_ind(bdata, ddata)
+print("DeepCellState p: " + str(p))
+t, p = ttest_ind(bdata, cdata)
+print("DeepCellState* p: " + str(p))
 df = pd.DataFrame(list(zip(bdata, ddata, cdata)),
                   columns=['Baseline', 'DeepCellState', "DeepCellState*"], index=pert_ids)
 df.to_csv("figures_data/cancer_drugs.tsv", sep="\t")

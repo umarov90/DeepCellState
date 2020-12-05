@@ -4,8 +4,7 @@ import random
 from CellData import CellData
 from collections import Counter
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 from tensorflow import keras
 import numpy as np
 import pickle
@@ -23,15 +22,16 @@ cell_decoders = {"MCF7": pickle.load(open(model + "MCF7" + "_decoder_weights", "
 encoder = autoencoder.get_layer("encoder")
 decoder = autoencoder.get_layer("decoder")
 autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
-# cell_data = CellData("LINCS/lincs_phase_1_2.tsv", "LINCS/folds/ext_val")
+cell_data = CellData("LINCS/lincs_phase_1_2.tsv", "LINCS/folds/ext_val")
 # pickle.dump(cell_data, open("cell_data.p", "wb"))
-cell_data = pickle.load(open("cell_data.p", "rb"))
+# cell_data = pickle.load(open("cell_data.p", "rb"))
 symbols = np.loadtxt("gene_symbols.csv", dtype="str")
 
 top_genes_num = 50
 top_targets_num = 50
 tf_data = {"MCF7": {}, "Average": {}}
 tf_sum = {"MCF7": {}, "Average": {}}
+tf_cell_types = {}
 directory = "TFS"
 cell_names = set()
 for filename in os.listdir(directory):
@@ -42,12 +42,18 @@ for filename in os.listdir(directory):
         df = pd.read_csv(os.path.join(directory, filename), sep="\t", index_col="Target_genes")
         avg_columns = []
         mcf7_columns = []
+        cell_types = []
         for col in df.columns:
             if "MCF-7" not in col:
                 if "Average" not in col:
                     avg_columns.append(col)
             else:
                 mcf7_columns.append(col)
+            try:
+                if "MCF-7" not in col and "Average" not in col:
+                    tf_cell_types.setdefault(filename, set([])).add(col.split("|")[1])
+            except:
+                pass
         if len(mcf7_columns) == 0:
             continue
         df["MCF7"] = df[mcf7_columns].astype(float).mean(axis=1)
@@ -124,6 +130,11 @@ for key in ["MCF7", "Average"]:
     print(sum/n)
     print("Done")
 
+for tf in tf_chosen:
+    print(tf, end="\t")
+    for ct in tf_cell_types[tf]:
+        print(ct, end="\t")
+    print()
 figure_data = np.stack([figure_vals_num["Average"], figure_vals_fold["Average"],
                         figure_vals_num["MCF7"], figure_vals_fold["MCF7"]], axis=0).transpose()
 df = pd.DataFrame(data=figure_data, index=tf_chosen, columns=["Average_num", "Average_fold", "MCF7_num", "MCF7_fold"])

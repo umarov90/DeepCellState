@@ -13,7 +13,7 @@ random.seed(0)
 np.random.seed(0)
 
 # parameters
-wdir = "results_2cells"
+wdir = "sub1"
 test_folds = ["1"]
 # test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",

@@ -1,9 +1,8 @@
 import math
 import pandas as pd
 import os
-
 from figures import utils1
-
+from scipy.stats import ttest_ind
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -78,7 +77,7 @@ def read_profile(file):
     return profile
 
 
-data_folder = "/home/user/data/DeepFake/val_model/"
+data_folder = "/home/user/data/DeepFake/sub2/"
 os.chdir(data_folder)
 
 genes = np.loadtxt("../gene_symbols.csv", dtype="str")
@@ -108,6 +107,8 @@ for i in range(len(input_data)):
     output_data[i][np.isnan(output_data[i])] = 0
     input_data[i][np.isnan(input_data[i])] = 0
 
+baseline_corrs = []
+our_corrs = []
 for i in range(len(input_data)):
     print(str(treatments[i]), end="\t")
     test_index = i
@@ -131,6 +132,7 @@ for i in range(len(input_data)):
     # utils1.draw_dist(profiles_H[profiles_H != 0], "hepg2_statin_dist.png")
     baseline_corr = stats.pearsonr(df_hepg2.flatten(), df_mcf7.flatten())[0]
     print(str(baseline_corr), end="\t")
+    baseline_corrs.append(baseline_corr)
     total_corr_base = total_corr_base + baseline_corr
     closest_cor, info = find_closest_corr(cell_data.train_data, cell_data.train_meta, df_hepg2, "HEPG2")
     # print(closest_cor)
@@ -143,28 +145,15 @@ for i in range(len(input_data)):
     cell_decoders = {}
     cell_decoders["MCF7"] = pickle.load(open("best_autoencoder_ext_val/" + "MCF7" + "_decoder_weights", "rb"))
     cell_decoders["PC3"] = pickle.load(open("best_autoencoder_ext_val/" + "PC3" + "_decoder_weights", "rb"))
-
     autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
     decoded = autoencoder.predict(np.asarray([df_hepg2]))
-
     decoded = decoded.flatten()
-
-    # print(get_intersection(decoded, df_mcf7, 50))
     corr = stats.pearsonr(decoded, df_mcf7.flatten())[0]
     print(corr)
+    our_corrs.append(corr)
     total_corr_our = total_corr_our + corr
-    # autoencoder.fit(input_tr, output_tr, epochs=30, batch_size=1)
-    # decoded = autoencoder.predict(np.asarray([df_hepg2]))
-    # print(get_intersection(decoded.flatten(), df_mcf7, 50))
-    # corr = stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0]
-    # print(corr)
-    #
-    # autoencoder = deepfake.build(978, 64)
-    # autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
-    # autoencoder.fit(input_tr, output_tr, epochs=20, batch_size=1)
-    # decoded = autoencoder.predict(np.asarray([df_hepg2]))
-    # print(get_intersection(decoded.flatten(), df_mcf7, 50))
-    # corr = stats.pearsonr(decoded.flatten(), df_mcf7.flatten())[0]
-    # print(corr)
 
 print(str(total_corr_base / len(treatments)) + "\t" + str(total_corr_our / len(treatments)))
+t, p = ttest_ind(baseline_corrs, our_corrs)
+print("DeepCellState p: " + str(p))
+print("Improvement: " + str(total_corr_our/total_corr_base))

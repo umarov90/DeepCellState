@@ -15,9 +15,9 @@ from collections import Counter
 from CellData import CellData
 
 os.chdir(open("../data_dir").read())
-cell_data = CellData("LINCS/lincs_phase_1_2.tsv", "LINCS/folds/ext_val")
-pickle.dump(cell_data, open("cell_data.p", "wb"))
-# cell_data = pickle.load(open("cell_data.p", "rb"))
+# cell_data = CellData("LINCS/lincs_phase_1_2.tsv", "LINCS/folds/ext_val")
+# pickle.dump(cell_data, open("cell_data.p", "wb"))
+cell_data = pickle.load(open("cell_data.p", "rb"))
 input_size = 978
 latent_dim = 128
 model = "sub2/best_autoencoder_ext_val/"
@@ -69,24 +69,24 @@ for cn, key in enumerate(cell_data.cell_types):
         # results.sort(key=lambda x: x[0], reverse=True)
         # results = results[:10]
         # total_results.extend(results)
-        # results = []
-        # for k in range(1000):
-        #     damaged_profile = closest_profile.copy()
-        #     inds = random.sample(range(0, 978), 100)
-        #     damaged_profile[0, inds] = 0
-        #     decoded1 = autoencoder.predict(damaged_profile)
-        #     pcc = stats.pearsonr(decoded1[0, inds].flatten(), test_profile[0, inds].flatten())[0]
-        #     results.append([pcc, inds])
-        # results.sort(key=lambda x: x[0], reverse=True)
-        # results = results[:10]
-        # total_results.extend(results)
-    # total_results = np.asarray([r[1] for r in total_results]).flatten()
-    # pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
-    total_results = pickle.load(open("total_results_" + key + ".p", "rb"))
+        results = []
+        for k in range(100):
+            damaged_profile = closest_profile.copy()
+            inds = random.sample(range(0, 978), 100)
+            damaged_profile[0, inds] = 0
+            decoded1 = autoencoder.predict(damaged_profile)
+            pcc = stats.pearsonr(decoded1[0, inds].flatten(), test_profile[0, inds].flatten())[0]
+            results.append([pcc, inds])
+        results.sort(key=lambda x: x[0], reverse=False)
+        results = results[:10]
+        total_results.extend(results)
+    total_results = np.asarray([r[1] for r in total_results]).flatten()
+    pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
+    # total_results = pickle.load(open("total_results_" + key + ".p", "rb"))
     c = Counter(total_results)
     for i in range(978):
         importance_scores[cn][i] = c[i] / num
-    top_genes_tuples = c.most_common(200)
+    top_genes_tuples = c.most_common(100)
     top_genes = []
     for x, y in top_genes_tuples:
         top_genes.append(x)
@@ -112,5 +112,6 @@ df = df.reindex(df.sum().sort_values(ascending=True).index, axis=1)
 
 df.to_csv("figures_data/clustermap.csv")
 
-np.savetxt("figures_data/top_genes_dif.tsv", list(set(final_sets["PC3"]) - set(final_sets["MCF7"])), delimiter="\t", fmt="%s")
-np.savetxt("figures_data/top_genes_inter.tsv", list(set(final_sets["MCF7"]) & set(final_sets["PC3"])), delimiter="\t", fmt="%s")
+# common = set(final_sets["MCF7"]) & set(final_sets["PC3"])
+# np.savetxt("figures_data/top_genes_MCF7.tsv", list(set(final_sets["MCF7"]) - set(final_sets["PC3"])), delimiter="\t", fmt="%s")
+# np.savetxt("figures_data/top_genes_PC3.tsv", list(set(final_sets["PC3"]) - set(final_sets["MCF7"])), delimiter="\t", fmt="%s")
