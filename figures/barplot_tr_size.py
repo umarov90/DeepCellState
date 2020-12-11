@@ -4,9 +4,9 @@ import seaborn as sns
 import os
 import pandas as pd
 
-os.chdir(open("../data_dir").read())
+os.chdir(open("../data_dir").read().strip())
 matplotlib.use("agg")
-sns.set(font_scale=1.3, style='white')
+sns.set(font_scale=1.3, style='ticks')
 fig, axs = plt.subplots(1,1,figsize=(10,4))
 
 df = pd.read_csv("figures_data/tr_size.tsv", sep="\t")
@@ -18,4 +18,5 @@ sns.barplot(x="Training set size", hue="Methods", y="PCC", data=df_long,
 axs.legend_.set_title(None)
 plt.title("Average PCC per training set size", loc='center', fontsize=18)
 plt.tight_layout()
+axs.xaxis.set_ticks_position('none')
 plt.savefig("figures/bar.svg")

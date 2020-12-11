@@ -1,7 +1,4 @@
-import collections
-import math
 import os
-from sklearn.decomposition import PCA
 import numpy as np
 from scipy import stats
 import matplotlib
@@ -11,10 +8,9 @@ from matplotlib.lines import Line2D
 from sklearn.manifold import TSNE
 
 matplotlib.use("Agg")
-import matplotlib as mpl
 
-os.chdir(open("../data_dir").read())
-sns.set(font_scale=1.3, style='white')
+os.chdir(open("../data_dir").read().strip())
+sns.set(font_scale=1.3, style='ticks')
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 4), constrained_layout=True)
 original_input = np.loadtxt("figures_data/tsne_input.csv", delimiter=",")
 latent_vectors = np.loadtxt("figures_data/tsne_latent.csv", delimiter=",")
@@ -22,16 +18,6 @@ perts = np.loadtxt("figures_data/tsne_perts.csv", delimiter=",", dtype=np.str)
 col = latent_vectors[:, -1]
 colors = []
 colors.extend(["good"] * len(latent_vectors))
-
-
-# colors.extend(["bad"]*len(bad))
-#
-# pca = PCA(n_components=2)
-# data = np.vstack([good, bad])
-# latent_vectors = pca.fit_transform(latent_vectors[:, :-1])
-# original_input = pca.fit_transform(original_input)
-#
-
 
 def pcc(a, b):
     v = stats.pearsonr(a.flatten(), b.flatten())[0]
@@ -98,11 +84,5 @@ legend_elements.append(Line2D([0], [0], linewidth=0, color='gray',
                               label="PC-3", marker=5, markersize=8))
 
 plt.legend(handles=legend_elements, bbox_to_anchor=(1.05, 1), loc='upper left')  # , title="Drugs"
-
-# ax.get_xaxis().set_minor_locator(mpl.ticker.AutoMinorLocator())
-# ax.get_yaxis().set_minor_locator(mpl.ticker.AutoMinorLocator())
-# ax.grid(b=True, which='major', color='black', linewidth=1.0)
-# ax.grid(b=True, which='minor', color='black', linewidth=0.5)
 fig.suptitle('t-SNE visualization of MCF-7 and PC-3 profiles', fontsize=18)
-# plt.tight_layout()
 plt.savefig("figures/tsne.pdf")

@@ -1,20 +1,16 @@
-import gc
 import os
 import random
-from CellData import CellData
-from collections import Counter
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-from tensorflow import keras
 import numpy as np
 import pickle
 import pandas as pd
-from tensorflow.python.keras import backend as K
 import tensorflow
+from tensorflow.python.keras import backend as K
+from CellData import CellData
+from tensorflow import keras
 tensorflow.compat.v1.disable_eager_execution()
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-
-os.chdir(open("../data_dir").read())
+os.chdir(open("../data_dir").read().strip())
 model = "sub2/best_autoencoder_ext_val/"
 autoencoder = keras.models.load_model(model + "main_model/")
 cell_decoders = {"MCF7": pickle.load(open(model + "MCF7" + "_decoder_weights", "rb")),
@@ -22,9 +18,7 @@ cell_decoders = {"MCF7": pickle.load(open(model + "MCF7" + "_decoder_weights", "
 encoder = autoencoder.get_layer("encoder")
 decoder = autoencoder.get_layer("decoder")
 autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
-cell_data = CellData("LINCS/lincs_phase_1_2.tsv", "LINCS/folds/ext_val")
-# pickle.dump(cell_data, open("cell_data.p", "wb"))
-# cell_data = pickle.load(open("cell_data.p", "rb"))
+cell_data = CellData("data/lincs_phase_1_2.tsv", "data/folds/ext_val")
 symbols = np.loadtxt("gene_symbols.csv", dtype="str")
 
 top_genes_num = 50
@@ -66,7 +60,7 @@ for filename in os.listdir(directory):
         if len(gene_list) < top_genes_num:
             continue
         tf_data["MCF7"][filename] = gene_list
-        tf_data["Average"][filename] = df.sort_values("Average", ascending=False).head(top_targets_num).index.to_list()
+        tf_data["Average"][filename] = df.sort_values("Average", ascending=False).head(top_targets_num).index.to_list()[:len(gene_list)]
     except Exception as e:
         print(e)
 
@@ -78,11 +72,6 @@ for i in range(len(cell_data.train_data)):
         tf_vals.setdefault(tf, []).append(cell_data.train_data[i][list(symbols.flatten()).index(tf), 0])
 
 tf_chosen = []
-# for tf in tf_vals.keys():
-#     tf_chosen.append([tf, max(tf_vals[tf])])
-# tf_chosen.sort(key=lambda x: x[1], reverse=True)
-# tf_chosen = tf_chosen[:10]
-# tf_chosen = [e[0] for e in tf_chosen]
 figure_vals_fold = {"MCF7": [], "Average": []}
 figure_vals_num = {"MCF7": [], "Average": []}
 sum = 0
@@ -130,11 +119,6 @@ for key in ["MCF7", "Average"]:
     print(sum/n)
     print("Done")
 
-for tf in tf_chosen:
-    print(tf, end="\t")
-    for ct in tf_cell_types[tf]:
-        print(ct, end="\t")
-    print()
 figure_data = np.stack([figure_vals_num["Average"], figure_vals_fold["Average"],
                         figure_vals_num["MCF7"], figure_vals_fold["MCF7"]], axis=0).transpose()
 df = pd.DataFrame(data=figure_data, index=tf_chosen, columns=["Average_num", "Average_fold", "MCF7_num", "MCF7_fold"])

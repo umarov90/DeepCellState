@@ -10,9 +10,9 @@ import pandas as pd
 
 plt.rcParams['hatch.linewidth'] = 2
 matplotlib.use("agg")
-os.chdir(open("../data_dir").read())
-sns.set(font_scale=1.3, style='white')
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6))
+os.chdir(open("../data_dir").read().strip())
+sns.set(font_scale=1.3, style='ticks')
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 4))
 df = pd.read_csv("figures_data/tf_analysis_data.csv")  # TF
 
 
@@ -61,7 +61,7 @@ sns.barplot(x="TF", hue="Targets", y="Fold Enrichment", data=df_long, ax=ax)
 ax.get_legend().remove()
 # , palette=cm.gist_heat(col_vals_avg)
 for i, bar in enumerate(ax.patches):
-    if i < len(df["TF"]):  # Average
+    if i < len(set(df["TF"])):  # Average
         bar.set_color(scalarmappaple.to_rgba(col_vals_avg[i]))
         # bar.set_edgecolor("white")
         bar.set_hatch("\\\\")
@@ -80,5 +80,7 @@ cb.ax.invert_yaxis()
 cb.ax.set_ylabel('P-value', labelpad=10)
 plt.title("TF target genes overlap", loc='center', fontsize=18)
 plt.tight_layout()
+ax.xaxis.set_ticks_position('none')
+plt.axhline(y=1.0, color='black', linestyle='--')
 plt.savefig("figures/bar_tf.pdf")
 

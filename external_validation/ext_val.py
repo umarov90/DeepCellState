@@ -1,30 +1,15 @@
 import math
 import pandas as pd
 import os
+import pickle
+import numpy as np
+from scipy import stats
+from tensorflow import keras
 from figures import utils1
 from scipy.stats import ttest_ind
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import numpy as np
-from scipy import stats
-from tensorflow import keras
-import pickle
-from CellData import CellData
-
-
-def find_closest_corr(train_data, meta, input_profile, cell):
-    best_corr = -1
-    best_ind = -1
-    for i, p in enumerate(train_data):
-        if meta[i][0] != cell:
-            continue
-        p_corr = stats.pearsonr(p.flatten(), input_profile.flatten())[0]
-        if p_corr > best_corr:
-            best_corr = p_corr
-            best_ind = i
-    # best_corr = stats.pearsonr(train_data[best_ind].flatten(), test_profile.flatten())[0]
-    return best_corr, meta[best_ind]
 
 
 def read_profile(file):
@@ -43,16 +28,12 @@ def read_profile(file):
         profile = profile + 2
         profile = (1000000 * profile) / np.sum(profile)
         profile_name = df.columns[i]
-        if profile_name.startswith("T") and "-6-" not in profile_name:  # in trt df[(df['Gene_Symbol'] == "HMGCR")][df.columns[i]]
+        if profile_name.startswith(
+                "T") and "-6-" not in profile_name:  # in trt df[(df['Gene_Symbol'] == "HMGCR")][df.columns[i]]
             profiles_trt.append(profile)
             trt_names.append(profile_name)
         elif profile_name.startswith("C"):
             profiles_ctrl.append(profile)
-    # all_profiles = profiles_trt.copy()
-    # all_profiles.extend(profiles_ctrl)
-    # all_profiles = np.asarray(all_profiles)
-    # all_profiles = stats.zscore(all_profiles, axis=0)
-    # all_profiles[:len(profiles_trt)] 0 2
     trt_profile = np.mean(np.asarray(profiles_trt), axis=0)
     ctrl_profile = np.mean(np.asarray(profiles_ctrl), axis=0)
     for p in profiles_trt:
@@ -64,40 +45,21 @@ def read_profile(file):
     profile = np.zeros(trt_profile.shape)
     for i in range(len(genes)):
         if ctrl_profile[i] != 0 and trt_profile[i] != 0:
-            #if trt_profile[i] > 5 or ctrl_profile[i] > 5:
             try:
                 profile[i] = math.log(trt_profile[i] / ctrl_profile[i])
             except Exception as e:
                 print(e)
-    # profile = 2 * (profile - np.min(profile)) / (np.max(profile) - np.min(profile)) - 1
     profile = profile / np.max(np.abs(profile))
-    # utils1.draw_one_profiles([profile], len(genes), file + "profile.png")
     profile = np.expand_dims(profile, axis=-1)
-    # profile = (profile - np.min(profile)) / (np.max(profile) - np.min(profile))
     return profile
 
 
-data_folder = "/home/user/data/DeepFake/sub2/"
-os.chdir(data_folder)
-
-genes = np.loadtxt("../gene_symbols.csv", dtype="str")
-
-if os.path.isfile("input_tr1.p"):
-    input_data = pickle.load(open("input_tr.p", "rb"))
-    output_data = pickle.load(open("output_tr.p", "rb"))
-else:
-    input_data = np.asarray([read_profile("../LINCS/statins/H_Flu.csv"), read_profile("../LINCS/statins/H_Ato.csv"),
-                             read_profile("../LINCS/statins/H_Ros.csv"), read_profile("../LINCS/statins/H_Sim.csv")])
-    output_data = np.asarray([read_profile("../LINCS/statins/M_Flu.csv"), read_profile("../LINCS/statins/M_Ato.csv"),
-                              read_profile("../LINCS/statins/M_Ros.csv"), read_profile("../LINCS/statins/M_Sim.csv")])
-    pickle.dump(input_data, open("input_tr.p", "wb"))
-    pickle.dump(output_data, open("output_tr.p", "wb"))
-
-if os.path.isfile("cell_data.p"):
-    cell_data = pickle.load(open("cell_data.p", "rb"))
-else:
-    cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "../LINCS/folds/1", 10)
-    pickle.dump(cell_data, open("cell_data.p", "wb"))
+os.chdir(open("../data_dir").read().strip())
+genes = np.loadtxt("data/gene_symbols.csv", dtype="str")
+input_data = np.asarray([read_profile("../data/statins/H_Flu.csv"), read_profile("../data/statins/H_Ato.csv"),
+                         read_profile("../data/statins/H_Ros.csv"), read_profile("../data/statins/H_Sim.csv")])
+output_data = np.asarray([read_profile("../data/statins/M_Flu.csv"), read_profile("../data/statins/M_Ato.csv"),
+                          read_profile("../data/statins/M_Ros.csv"), read_profile("../data/statins/M_Sim.csv")])
 
 treatments = ["Fluvastatin", "Atrovastatin", "Rosuvastatin", "Simvastatin"]
 total_corr_base = 0
@@ -112,39 +74,15 @@ our_corrs = []
 for i in range(len(input_data)):
     print(str(treatments[i]), end="\t")
     test_index = i
-    df_hepg2 = input_data[test_index] # - gm
-    df_mcf7 = output_data[test_index] # - gm
-    # input_tr = np.delete(input_tr, test_index, axis=0)
-    # output_tr = np.delete(output_tr, test_index, axis=0)
-    # df_mcf7[np.where(genes == "HMGCR")]
-    # profiles_H = []
-    # profiles_M = []
-    # for filename in os.listdir("statins"):
-    #     if filename.endswith(".csv"):
-    #         if filename.startswith("H"):
-    #             profiles_H.append(read_profile("statins/" + filename))
-    #         if filename.startswith("M"):
-    #             profiles_M.append(read_profile("statins/" + filename))
-    #
-    # profiles_H = np.asarray(profiles_H)
-    # profiles_M = np.asarray(profiles_M)
-    # utils1.draw_dist(profiles_M[profiles_M != 0], "mcf7_statin_dist.png")
-    # utils1.draw_dist(profiles_H[profiles_H != 0], "hepg2_statin_dist.png")
+    df_hepg2 = input_data[test_index]
+    df_mcf7 = output_data[test_index]
     baseline_corr = stats.pearsonr(df_hepg2.flatten(), df_mcf7.flatten())[0]
     print(str(baseline_corr), end="\t")
     baseline_corrs.append(baseline_corr)
     total_corr_base = total_corr_base + baseline_corr
-    closest_cor, info = find_closest_corr(cell_data.train_data, cell_data.train_meta, df_hepg2, "HEPG2")
-    # print(closest_cor)
-    # print(info)
-    closest_cor, info = find_closest_corr(cell_data.train_data, cell_data.train_meta, df_mcf7, "MCF7")
-    # print(closest_cor)
-    # print(info)
-
     autoencoder = keras.models.load_model("best_autoencoder_ext_val/main_model")
-    cell_decoders = {}
-    cell_decoders["MCF7"] = pickle.load(open("best_autoencoder_ext_val/" + "MCF7" + "_decoder_weights", "rb"))
-    cell_decoders["PC3"] = pickle.load(open("best_autoencoder_ext_val/" + "PC3" + "_decoder_weights", "rb"))
+    cell_decoders = {"MCF7": pickle.load(open("best_autoencoder_ext_val/" + "MCF7" + "_decoder_weights", "rb")),
+                     "PC3": pickle.load(open("best_autoencoder_ext_val/" + "PC3" + "_decoder_weights", "rb"))}
     autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
     decoded = autoencoder.predict(np.asarray([df_hepg2]))
     decoded = decoded.flatten()
@@ -156,4 +94,4 @@ for i in range(len(input_data)):
 print(str(total_corr_base / len(treatments)) + "\t" + str(total_corr_our / len(treatments)))
 t, p = ttest_ind(baseline_corrs, our_corrs)
 print("DeepCellState p: " + str(p))
-print("Improvement: " + str(total_corr_our/total_corr_base))
+print("Improvement: " + str(total_corr_our / total_corr_base))

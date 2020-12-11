@@ -2,26 +2,22 @@ import os
 from scipy import stats
 from shutil import copyfile
 import deepfake
-from figures import utils1
+from figures import profiles_viz
 from CellData import CellData
 import numpy as np
 import pandas as pd
 import random
-import pickle
 
 random.seed(0)
 np.random.seed(0)
 
 # parameters
-wdir = "sub1"
+wdir = "results_2cells"
 test_folds = ["1"]
 # test_folds = range(1, 11)
 # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
-#               "5-HT modulator_ids"]
-# test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
 #               "5-HT modulator_ids", "TKI_ids", "COX inh._ids",
 #               "histaminergic_ids", "antipsychotic_ids", "GABAergic_ids", "dopaminergic_ids"]
-# test_folds = ["final_test"]
 input_size = 978
 latent_dim = 128
 data_folder = "/home/user/data/DeepFake/" + wdir
@@ -43,12 +39,6 @@ for r, test_fold in enumerate(test_folds):
     test_fold = str(test_fold)
     tr_size = 1280
     cell_data = CellData("../LINCS/lincs_phase_1_2.tsv", "../LINCS/folds/" + test_fold)
-    # pickle.dump(cell_data, open("cell_data.p", "wb"))
-    # cell_data = pickle.load(open("cell_data.p", "rb"))
-    # with open("sizes.txt", 'a+') as f:
-    #     f.write(str(len(cell_data.train_data)))
-    #     f.write("\n")
-    # continue
     autoencoder, cell_decoders = deepfake.get_best_autoencoder(input_size, latent_dim,
                                                                cell_data, test_fold, 2)
     encoder = autoencoder.get_layer("encoder")
@@ -126,16 +116,16 @@ for r, test_fold in enumerate(test_folds):
                                                           0]
         bp = stats.pearsonr(mean_profile.flatten(), test_profile.flatten())[0]
         dp = stats.pearsonr(special_decoded.flatten(), test_profile.flatten())[0]
-        if dp > 0.8: # and bp < 0.5
+        if dp > 0.4: # and bp < 0.5
             os.makedirs("profiles", exist_ok=True)
-            utils1.draw_profiles(test_profile, special_decoded, closest_profile,
+            pname = profiles_viz.fix(df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0])
+            profiles_viz.draw_profiles(test_profile, special_decoded, closest_profile, pname,
                                  input_size, "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
-                                 + "_" + str(dp) + "_" + str(bp) + "_" +
-                                 utils1.fix(df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + ".svg")
-            utils1.draw_scatter_profiles(test_profile, special_decoded, closest_profile,
+                                 + "_" + str(dp) + "_" + str(bp) + "_" + pname + ".svg")
+            profiles_viz.draw_scatter_profiles(test_profile, special_decoded, closest_profile, pname,
                               "profiles/" + cell_data.test_meta[i][0] + "_" + str(i)
                                          + "_" + str(dp) + "_" + str(bp) + "_" +
-                                         utils1.fix(df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]) + "_scatter.svg")
+                                         pname + "_scatter.svg")
         tsne_perts.append(["PC3" if test_meta_object[0] == "MCF7" else "MCF7",
                            df.query('pert_id=="' + str(test_meta_object[1]) + '"')["pert_iname"].tolist()[0]])
         tsne_input.append(closest_profile.flatten())

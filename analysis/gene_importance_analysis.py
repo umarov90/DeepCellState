@@ -1,23 +1,19 @@
 import os
 import random
-
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from tensorflow import keras
 import numpy as np
-from numpy import zeros
-from copy import deepcopy
-from scipy import stats
 import pickle
 import pandas as pd
 from collections import Counter
 from CellData import CellData
+from numpy import zeros
+from scipy import stats
+from tensorflow import keras
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-os.chdir(open("../data_dir").read())
-# cell_data = CellData("LINCS/lincs_phase_1_2.tsv", "LINCS/folds/ext_val")
-# pickle.dump(cell_data, open("cell_data.p", "wb"))
-cell_data = pickle.load(open("cell_data.p", "rb"))
+os.chdir(open("../data_dir").read().strip())
+cell_data = CellData("data/lincs_phase_1_2.tsv", "data/folds/ext_val")
 input_size = 978
 latent_dim = 128
 model = "sub2/best_autoencoder_ext_val/"
@@ -56,31 +52,17 @@ for cn, key in enumerate(cell_data.cell_types):
             continue
         seen_perts.append(train_meta_object[1])
         num = num + 1
-        test_profile = np.asarray([cell_data.train_data[i]]).flatten()
-        # results = []
-        # for k in range(1000):
-        #     damaged_profile = np.zeros(closest_profile.shape)
-        #     inds = random.sample(range(0, 978), 100)
-        #     damaged_profile[0, inds] = closest_profile[0, inds]
-        #
-        #     decoded1 = autoencoder.predict(damaged_profile)
-        #     pcc = stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
-        #     results.append([pcc, inds])
-        # results.sort(key=lambda x: x[0], reverse=True)
-        # results = results[:10]
-        # total_results.extend(results)
+        test_profile = np.asarray([cell_data.train_data[i]])
         results = []
-        for k in range(20):
-            damaged_profile = closest_profile.copy()
+        for k in range(100):
+            damaged_profile = np.zeros(closest_profile.shape)
             inds = random.sample(range(0, 978), 100)
-            damaged_profile[0, inds] = 0
-            decoded1 = autoencoder.predict(damaged_profile).flatten()
-            decoded1 = np.delete(decoded1, inds)
-            test_profile_copy = np.delete(test_profile, inds)
-            pcc = stats.pearsonr(decoded1, test_profile_copy)[0]
+            damaged_profile[0, inds] = closest_profile[0, inds]
+            decoded1 = autoencoder.predict(damaged_profile)
+            pcc = stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
             results.append([pcc, inds])
-        results.sort(key=lambda x: x[0], reverse=False)
-        results = results[:2]
+        results.sort(key=lambda x: x[0], reverse=True)
+        results = results[:10]
         total_results.extend(results)
     total_results = np.asarray([r[1] for r in total_results]).flatten()
     pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
@@ -88,7 +70,7 @@ for cn, key in enumerate(cell_data.cell_types):
     c = Counter(total_results)
     for i in range(978):
         importance_scores[cn][i] = c[i] / num
-    top_genes_tuples = c.most_common(100)
+    top_genes_tuples = c.most_common(200)
     top_genes = []
     for x, y in top_genes_tuples:
         top_genes.append(x)
@@ -108,12 +90,8 @@ for i in range(input_size):
 
 df.columns = genes
 df.index = rows
-df = df.reindex(df.sum().sort_values(ascending=True).index, axis=1)
-# df = df.iloc[:, : 50]
-# df.drop(df.columns[df.apply(lambda col: col.max() < 1.1)], axis=1, inplace=True)
+df = df.reindex(df.sum().sort_values(ascending=False).index, axis=1)
+for i in range(0, 50):
+    print(df.columns[i])
 
 df.to_csv("figures_data/clustermap.csv")
-
-# common = set(final_sets["MCF7"]) & set(final_sets["PC3"])
-# np.savetxt("figures_data/top_genes_MCF7.tsv", list(set(final_sets["MCF7"]) - set(final_sets["PC3"])), delimiter="\t", fmt="%s")
-# np.savetxt("figures_data/top_genes_PC3.tsv", list(set(final_sets["PC3"]) - set(final_sets["MCF7"])), delimiter="\t", fmt="%s")

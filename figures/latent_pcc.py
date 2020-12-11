@@ -1,12 +1,11 @@
 import os
 import pandas as pd
-import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 matplotlib.use("Agg")
 
-os.chdir(open("../data_dir").read())
+os.chdir(open("../data_dir").read().strip())
 sns.set(font_scale=1.3, style='white')
 df = pd.read_pickle("figures_data/latent.p")
 f, ax = plt.subplots(figsize=(6, 4))
@@ -28,4 +27,3 @@ plt.xlabel('MCF-7 profiles', fontsize=18)
 plt.ylabel('PC-3 profiles', fontsize=18)
 plt.savefig("figures/latent_pcc.pdf")
 plt.tight_layout()
-plt.close(None)

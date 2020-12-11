@@ -33,7 +33,6 @@ from tensorflow.python.keras.optimizers import Adam
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from figures import utils1
 
 tf.compat.v1.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices('GPU')

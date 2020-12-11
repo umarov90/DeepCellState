@@ -133,4 +133,4 @@ def load_ctss_folder(ctss_folder, annotation):
             df.to_csv("profiles/" + k + "_" + d + ".csv")
 
 
-# load_ctss_folder("/home/user/Desktop/GSE134817_RAW/", "/home/user/data/to_copy/gencode.v34lift37.annotation.gff3")
+# load_ctss_folder("data/GSE134817_RAW/", "data/gencode.v34lift37.annotation.gff3")
