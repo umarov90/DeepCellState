@@ -13,9 +13,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 os.chdir(open("../data_dir").read().strip())
-# cell_data = CellData("data/lincs_phase_1_2.tsv", "data/folds/ext_val")
-# pickle.dump(cell_data, open("cell_data.p", "wb"))
-cell_data = pickle.load(open("cell_data.p", "rb"))
+cell_data = CellData("data/lincs_phase_1_2.tsv", "data/folds/ext_val")
+pickle.dump(cell_data, open("cell_data.p", "wb"))
+# cell_data = pickle.load(open("cell_data.p", "rb"))
 input_size = 978
 latent_dim = 128
 model = "sub2/best_autoencoder_ext_val/"
@@ -54,21 +54,21 @@ for cn, key in enumerate(cell_data.cell_types):
             continue
         seen_perts.append(train_meta_object[1])
         num = num + 1
-        # test_profile = np.asarray([cell_data.train_data[i]])
-        # results = []
-        # for k in range(100):
-        #     damaged_profile = np.zeros(closest_profile.shape)
-        #     inds = random.sample(range(0, 978), 100)
-        #     damaged_profile[0, inds] = closest_profile[0, inds]
-        #     decoded1 = autoencoder.predict(damaged_profile)
-        #     pcc = stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
-        #     results.append([pcc, inds])
-        # results.sort(key=lambda x: x[0], reverse=True)
-        # results = results[:10]
-        # total_results.extend(results)
-    # total_results = np.asarray([r[1] for r in total_results]).flatten()
-    # pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
-    total_results = pickle.load(open("total_results_" + key + ".p", "rb"))
+        test_profile = np.asarray([cell_data.train_data[i]])
+        results = []
+        for k in range(100):
+            damaged_profile = np.zeros(closest_profile.shape)
+            inds = random.sample(range(0, 978), 100)
+            damaged_profile[0, inds] = closest_profile[0, inds]
+            decoded1 = autoencoder.predict(damaged_profile)
+            pcc = stats.pearsonr(decoded1.flatten(), test_profile.flatten())[0]
+            results.append([pcc, inds])
+        results.sort(key=lambda x: x[0], reverse=True)
+        results = results[:10]
+        total_results.extend(results)
+    total_results = np.asarray([r[1] for r in total_results]).flatten()
+    pickle.dump(total_results, open("total_results_" + key + ".p", "wb"))
+    # total_results = pickle.load(open("total_results_" + key + ".p", "rb"))
     c = Counter(total_results)
     for i in range(978):
         importance_scores[cn][i] = c[i] / num
@@ -93,8 +93,10 @@ for i in range(input_size):
 df.columns = genes
 df.index = rows
 df = df.reindex(df.sum().sort_values(ascending=False).index, axis=1)
+print()
 with open("top_both.txt", "w+") as file1:
     for i in range(0, 50):
+        print(df.columns[i])
         file1.write(df.columns[i])
         file1.write("\n")
 
