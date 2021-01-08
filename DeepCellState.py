@@ -55,7 +55,10 @@ def main():
     input_size = 978
     latent_dim = 128
 
-    os.chdir(open("../data_dir").read().strip() + args.O)
+    wdir = open("data_dir").read().strip() + args.O
+    if not os.path.exists(wdir):
+        os.makedirs(wdir)
+    os.chdir(wdir)
 
     df = pd.read_csv("../data/GSE70138_Broad_LINCS_pert_info.txt", sep="\t")
     good = []
