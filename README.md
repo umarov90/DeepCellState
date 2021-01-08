@@ -7,7 +7,7 @@ DeepCellState requires ```tensorflow>=2.3.0```, which can be installed via pip:
 pip install tensorflow
 ```
 
-To run DeepCellState, download the [data](https://www.dropbox.com/s/dluxw8zryh1hoyf/DeepCellState_data.zip?dl=1) and extract it to some location. Add this path to to the data_dir file in the project root. 
+To run DeepCellState, download the [data](https://www.dropbox.com/s/dluxw8zryh1hoyf/DeepCellState_data.zip?dl=1) and extract it to some location. Add this path (**parent folder of the data folder**) to to the data_dir file in the project root. 
 Run DeepCellState.py to generate the models:
 ```sh
 DeepCellState.py -O models_output -CT A375,HT29 -PT trt_cp -N 1 -SM 0
@@ -21,4 +21,6 @@ Parameters:
 
 Trained models can be downloaded from:
 [models](https://www.dropbox.com/s/7c77tzxaefhom2d/DeepCellState_models.zip?dl=1)
+
+Extract them into the same directory as the data folder. 
 
