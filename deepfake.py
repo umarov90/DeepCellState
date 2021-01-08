@@ -88,7 +88,7 @@ def build(input_size, latent_dim, regul_stren=0):
     return autoencoder
 
 
-def get_best_autoencoder(input_size, latent_dim, data, test_fold, n):
+def get_best_autoencoder(input_size, latent_dim, data, test_fold, n, regul_stren):
     best_cor = -2
     if not (use_existing and os.path.exists("best_autoencoder_" + test_fold)):
         if not os.path.exists("best_autoencoder_" + test_fold):
@@ -96,7 +96,7 @@ def get_best_autoencoder(input_size, latent_dim, data, test_fold, n):
         for i in range(n):
             print(
                 test_fold + " run number - " + str(i + 1) + " ========================================================")
-            autoencoder, cell_decoders, val_cor = get_autoencoder(input_size, latent_dim, data)
+            autoencoder, cell_decoders, val_cor = get_autoencoder(input_size, latent_dim, data, regul_stren)
             if val_cor > best_cor:
                 best_cor = val_cor
                 autoencoder.save("best_autoencoder_" + test_fold + "/main_model")
@@ -111,8 +111,8 @@ def get_best_autoencoder(input_size, latent_dim, data, test_fold, n):
     return autoencoder, cell_decoders
 
 
-def get_autoencoder(input_size, latent_dim, data):
-    autoencoder = build(input_size, latent_dim)
+def get_autoencoder(input_size, latent_dim, data, regul_stren):
+    autoencoder = build(input_size, latent_dim, regul_stren)
     autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-4))
     encoder = autoencoder.get_layer("encoder")
     cell_decoders = {}

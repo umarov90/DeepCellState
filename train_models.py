@@ -19,6 +19,9 @@ def get_options():
     parser.add_argument('-N', metavar='number of runs', default=2,
                         type=int, help='number of models trained for each fold.'
                                        ' The model with best validation performance is picked.')
+    parser.add_argument('-SM', metavar='special models', default=0,
+                        type=int, help='set to 1 to train drug MoA family models or'
+                                       ' set to 2 to train external validation model.')
 
     args = parser.parse_args()
 
@@ -32,14 +35,25 @@ def test_loss(prediction, ground_truth):
 def main():
     random.seed(0)
     np.random.seed(0)
-
-    test_folds = range(1, 11)
-    # test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
-    #               "5-HT modulator_ids", "TKI_ids", "COX inh._ids",
-    #               "histaminergic_ids", "antipsychotic_ids", "GABAergic_ids", "dopaminergic_ids"]
+    args = get_options()
+    regul_stren = 2
+    if args.CT is not None and len(args.CT)>0:
+        regul_stren = 1
+    folds_folder = "../data/folds/"
+    if args.PT == "trt_sh":
+        folds_folder = "../data/folds_sh+cp/"
+    if args.SM == 0:
+        test_folds = range(1, 11)
+    elif args.SM == 1:
+        test_folds = ["antibiotics_ids", "adrenergic_ids", "cholinergic_ids",
+                      "5-HT modulator_ids", "TKI_ids", "COX inh._ids",
+                      "histaminergic_ids", "antipsychotic_ids", "GABAergic_ids", "dopaminergic_ids"]
+    else:
+        test_folds = ["ext_val"]
+        regul_stren = 3
     input_size = 978
     latent_dim = 128
-    args = get_options()
+
     os.chdir(open("../data_dir").read().strip() + args.O)
 
     df = pd.read_csv("../data/GSE70138_Broad_LINCS_pert_info.txt", sep="\t")
@@ -49,9 +63,9 @@ def main():
     tsne_latent = []
     for r, test_fold in enumerate(test_folds):
         test_fold = str(test_fold)
-        cell_data = CellData("../data/lincs_phase_1_2.tsv", "../data/folds/" + test_fold, "MCF7,PC3," + args.CT, args.PT)
+        cell_data = CellData("../data/lincs_phase_1_2.tsv", folds_folder + test_fold, "MCF7,PC3," + args.CT, args.PT)
         autoencoder, cell_decoders = deepfake.get_best_autoencoder(input_size, latent_dim,
-                                                                   cell_data, test_fold, args.N)
+                                                                   cell_data, test_fold, args.N, regul_stren)
         encoder = autoencoder.get_layer("encoder")
         results = {}
         img_count = 0
