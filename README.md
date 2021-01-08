@@ -24,7 +24,7 @@ Trained models can be downloaded from:
 
 Extract them into the same directory as the data folder. 
 
-This is how DeepCellState models can be used in custom script to make predictions:
+This is how DeepCellState models can be used in a custom script to make predictions:
 
 ```python
 import pickle
@@ -35,7 +35,8 @@ autoencoder = keras.models.load_model(model + "main_model/")
 cell_decoders = {"MCF7": pickle.load(open(model + "MCF7" + "_decoder_weights", "rb")),
                  "PC3": pickle.load(open(model + "PC3" + "_decoder_weights", "rb"))}
 autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
-pc3_array = ... # get an array of dimension 1, 978, 1
-predicted = autoencoder.predict(pc3_array) 
+pc3_response = ... # get an array of dimension 1, 978, 1
+# convert PC3 response to MCF7 response
+mcf7_predicted_response = autoencoder.predict(pc3_response) 
 ```
 
