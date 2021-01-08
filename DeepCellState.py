@@ -11,17 +11,18 @@ import random
 def get_options():
     parser = argparse.ArgumentParser(description='Version: 1.0')
     parser.add_argument('-O', metavar='output', default="DeepCellState_output",
-                        help='output directory')
+                        help='Output directory')
     parser.add_argument('-CT', metavar='cell types', default="",
-                        type=str, help='comma separated list of cell types to use in addition to MCF7 and PC3')
+                        type=str, help='Comma separated list of cell types to use in addition to MCF7 and PC3')
     parser.add_argument('-PT', metavar='pert type', default="trt_cp",
                         type=str, help='Perturbation type to be used, defaults to trt_cp')
     parser.add_argument('-N', metavar='number of runs', default=2,
-                        type=int, help='number of models trained for each fold.'
+                        type=int, help='Number of models trained for each fold.'
                                        ' The model with best validation performance is picked.')
     parser.add_argument('-SM', metavar='special models', default=0,
-                        type=int, help='set to 1 to train drug MoA family models or'
-                                       ' set to 2 to train external validation model.')
+                        type=int, help='Set to 1 to train drug MoA family models or'
+                                       ' set to 2 to train external validation model.'
+                                       ' Defaults to 0, i.e. 10-fold cross-validation.')
 
     args = parser.parse_args()
 
