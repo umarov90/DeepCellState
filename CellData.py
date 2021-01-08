@@ -5,10 +5,10 @@ import pandas as pd
 
 
 class CellData:
-    def __init__(self, data_file, test_fold, tr_size=None):
-        data, meta, all_pert_ids = self.parse_data(data_file)
+    def __init__(self, data_file, test_fold, cell_types="MCF7,PC3", pert_type="trt_cp"):
+        data, meta, all_pert_ids = self.parse_data(data_file, cell_types, pert_type)
         train_data, train_meta, test_data, test_meta, val_data, val_meta,\
-            cell_types, train_perts, val_perts, test_perts = self.split_data(data, meta, all_pert_ids, test_fold, tr_size)
+            cell_types, train_perts, val_perts, test_perts = self.split_data(data, meta, all_pert_ids, test_fold)
         meta_dictionary_pert = {}
         for pert_id in train_perts:
             meta_dictionary_pert[pert_id] = [[p, i] for i, p in enumerate(train_meta) if p[1] == pert_id]
@@ -51,18 +51,15 @@ class CellData:
         print(test_data.shape)
         print("----------------------------------------------")
 
-    def parse_data(self, file):
+    def parse_data(self, file, cell_types, pert_type):
         print("Parsing data at " + file)
         df = pd.read_csv(file, sep="\t")
         df.reset_index(drop=True, inplace=True)
         print("Total: " + str(df.shape))
-        df = df[(df['pert_type'] == "trt_cp")]
+        df = df[(df['pert_type'] == pert_type)]
         # df = df[(df['pert_type'] == "trt_sh.cgs")]
-        df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") ]  # | (df['cell_id'] == "HEPG2")
+        df = df[df['cell_id'].isin(cell_types.split(","))]
         print(df.groupby(['cell_id']).size())
-        # df = df[(df['cell_id'] == "MCF7") | (df['cell_id'] == "PC3") | (df['cell_id'] == "A375") |
-        #         (df['cell_id'] == "HT29") | (df['cell_id'] == "HA1E") | (df['cell_id'] == "YAPC") |
-        #         (df['cell_id'] == "HELA") ] # | (df['cell_id'] == "HEPG2")
         print("Cell filtering: " + str(df.shape))
         # df['pert_idose'] = df['pert_idose'].str.replace(' um','')
         # df['pert_idose'] = df['pert_idose'].astype(float)
@@ -82,9 +79,6 @@ class CellData:
         # df = df.groupby(['cell_id']).filter(lambda x: len(x) > 1000)
         # print("Count filtering: " + str(df.shape))
         # df = df.drop_duplicates(['cell_id', 'pert_id', 'pert_idose', 'pert_itime', 'pert_type'])
-        # df = df.groupby(['cell_id', 'pert_id'], as_index=False).mean()
-        # print("Merging: " + str(df.shape))
-        # df.pert_type.value_counts().to_csv("trt_count_final.tsv", sep='\t')
         print(df.groupby(['cell_id']).size())
         cell_ids = df["cell_id"].values
         pert_ids = df["pert_id"].values
@@ -95,14 +89,11 @@ class CellData:
         perts = np.stack([cell_ids, pert_ids, pert_type]).transpose()
         df = df.drop(['cell_id', 'pert_id', 'pert_type', 'Unnamed: 0'], 1)
         data = df.values
-        # data = (data - np.min(data)) / (np.max(data) - np.min(data))
-        # for i in range(len(data)):
-        #     data[i] = data[i] / np.max(np.abs(data[i]))
         data = data / np.max(np.abs(data))
         data = np.expand_dims(data, axis=-1)
         return data, perts, all_pert_ids
 
-    def split_data(self, data, meta, all_pert_ids, test_fold, tr_size):
+    def split_data(self, data, meta, all_pert_ids, test_fold):
         print(test_fold)
         cell_types = set([meta[i][0] for i, x in enumerate(meta)])
         rng_state = np.random.get_state()

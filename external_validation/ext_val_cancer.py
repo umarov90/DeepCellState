@@ -133,7 +133,7 @@ for i in range(len(pert_ids)):
     autoencoder_w.get_layer("decoder").set_weights(pickle.load(open(model + "MCF7" + "_decoder_weights", "rb")))
     input_tr = np.delete(np.asarray(input_data), i, axis=0)
     output_tr = np.delete(np.asarray(output_data), i, axis=0)
-    autoencoder = deepfake.build(978, 128)
+    autoencoder = deepfake.build(978, 128, regul_stren=0)
     autoencoder.set_weights(autoencoder_w.get_weights())
     autoencoder.compile(loss="mse", optimizer=Adam(lr=1e-5))
     autoencoder.fit(input_tr, output_tr, epochs=50, batch_size=1)
