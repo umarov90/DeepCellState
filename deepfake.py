@@ -31,14 +31,10 @@ config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 nb_total_epoch = 100
 nb_autoencoder_epoch = 50
 nb_frozen_epoch = 100
-batch_size = 32
-use_existing = True
+batch_size = 128
+use_existing = False
 
 
-# 2 cell, cell type excluded dropout 0.5, 0.8, l1 1e-7
-# 7 cell and trt_sh  dropout 0.2, 0.8, l1 1e-8
-# transfer learning 0.1, l1 0, 0.5
-# ext_val dropout 0.5, 0.9, l1 1e-5
 def build(input_size, latent_dim, regul_stren=0):
     if regul_stren == 0:
         noise_dropout = 0.1
@@ -54,8 +50,8 @@ def build(input_size, latent_dim, regul_stren=0):
         dropout = 0.8
     else:
         noise_dropout = 0.5
-        l1_weight = 1e-5
-        dropout = 0.9
+        l1_weight = 1e-6
+        dropout = 0.8
 
     layer_units = [512, 256]
     input_shape = (input_size, 1)
