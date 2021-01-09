@@ -9,7 +9,7 @@ from numpy import zeros
 from scipy import stats
 from tensorflow import keras
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 os.chdir(open("data_dir").read().strip())

@@ -2,6 +2,8 @@
 ![Framework](framework.png)
 Drug treatment induces cell type specific transcriptional programs, and as the number of combinations of drugs and cell types grows, the cost for exhaustive screens measuring the transcriptional drug response becomes intractable. We developed DeepCellState, a neural network auto-encoder framework based on the DeepFake approach, for prediction of the induced transcriptional state in a cell type after drug treatment, based on the drug response in another cell type.
 
+The implementation details can be found in the [paper](https://doi.org/10.1101/2020.12.14.422792).
+
 DeepCellState requires ```tensorflow>=2.3.0```, which can be installed via pip:
 ```sh
 pip install tensorflow
@@ -49,3 +51,4 @@ pc3_response = ... # get an array of dimension 1, 978, 1
 mcf7_predicted_response = autoencoder.predict(pc3_response) 
 ```
 
+To generate profile figures during training, uncomment the lines in DeepCellState.py.

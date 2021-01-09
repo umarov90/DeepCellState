@@ -12,7 +12,7 @@ from scipy.stats import ttest_ind
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.optimizers import Adam
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 tf.compat.v1.disable_eager_execution()

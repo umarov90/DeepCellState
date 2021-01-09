@@ -7,7 +7,7 @@ from scipy import stats
 from tensorflow import keras
 from scipy.stats import ttest_ind
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
@@ -53,10 +53,10 @@ def read_profile(file):
 
 os.chdir(open("data_dir").read().strip())
 genes = np.loadtxt("data/gene_symbols.csv", dtype="str")
-input_data = np.asarray([read_profile("../data/statins/H_Flu.csv"), read_profile("../data/statins/H_Ato.csv"),
-                         read_profile("../data/statins/H_Ros.csv"), read_profile("../data/statins/H_Sim.csv")])
-output_data = np.asarray([read_profile("../data/statins/M_Flu.csv"), read_profile("../data/statins/M_Ato.csv"),
-                          read_profile("../data/statins/M_Ros.csv"), read_profile("../data/statins/M_Sim.csv")])
+input_data = np.asarray([read_profile("data/statins/H_Flu.csv"), read_profile("data/statins/H_Ato.csv"),
+                         read_profile("data/statins/H_Ros.csv"), read_profile("data/statins/H_Sim.csv")])
+output_data = np.asarray([read_profile("data/statins/M_Flu.csv"), read_profile("data/statins/M_Ato.csv"),
+                          read_profile("data/statins/M_Ros.csv"), read_profile("data/statins/M_Sim.csv")])
 
 treatments = ["Fluvastatin", "Atrovastatin", "Rosuvastatin", "Simvastatin"]
 total_corr_base = 0

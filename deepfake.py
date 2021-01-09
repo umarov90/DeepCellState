@@ -1,7 +1,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '3'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow.python.keras import regularizers
 from tensorflow.python.keras import backend as K
@@ -29,9 +29,9 @@ assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
 config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 nb_total_epoch = 100
-nb_autoencoder_epoch = 50
+nb_autoencoder_epoch = 100
 nb_frozen_epoch = 100
-batch_size = 32
+batch_size = 128
 use_existing = False
 
 
@@ -49,8 +49,8 @@ def build(input_size, latent_dim, regul_stren=0):
         l1_weight = 1e-7
         dropout = 0.8
     else:
-        noise_dropout = 0.5
-        l1_weight = 1e-5
+        noise_dropout = 0.1
+        l1_weight = 1e-4
         dropout = 0.8
 
     layer_units = [512, 256]
@@ -256,6 +256,9 @@ def get_autoencoder(input_size, latent_dim, data, regul_stren):
         print("Evaluated:" + str(val_count))
         if e == 0:
             best_val_cor = val_cor
+            autoencoder.save("best/main_model")
+            for cell in data.cell_types:
+                pickle.dump(cell_decoders[cell], open("best/" + cell + "_decoder_weights", "wb"))
         else:
             if val_cor < best_val_cor:
                 count = count + 1
@@ -266,7 +269,7 @@ def get_autoencoder(input_size, latent_dim, data, regul_stren):
                 for cell in data.cell_types:
                     pickle.dump(cell_decoders[cell], open("best/" + cell + "_decoder_weights", "wb"))
 
-        if count > 4:
+        if count > 2:
             e = nb_total_epoch - 2
             count = 0
             for cell in data.cell_types:
