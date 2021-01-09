@@ -20,7 +20,10 @@ Parameters:
 - ```-SM```: Set to 1 to train drug MoA family models or set to 2 to train external validation model. Defaults to 0, i.e. 10-fold cross-validation.
 
 Trained models can be downloaded from:
-[models](https://drive.google.com/file/d/1SHHTXpJBZoBhwqK0vvlw9bmwhPv16K3n/view?usp=sharing)
+
+[models 1](https://www.dropbox.com/s/7c77tzxaefhom2d/DeepCellState_models.zip?dl=1) (2 cell types and external validation)
+
+[models 2](https://drive.google.com/file/d/1SHHTXpJBZoBhwqK0vvlw9bmwhPv16K3n/view?usp=sharing) (all models used in the paper)
 
 
 Extract them into the same directory as the data folder. 
