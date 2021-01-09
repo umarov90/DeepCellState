@@ -31,7 +31,7 @@ config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 nb_total_epoch = 100
 nb_autoencoder_epoch = 50
 nb_frozen_epoch = 100
-batch_size = 128
+batch_size = 32
 use_existing = False
 
 
@@ -50,7 +50,7 @@ def build(input_size, latent_dim, regul_stren=0):
         dropout = 0.8
     else:
         noise_dropout = 0.5
-        l1_weight = 1e-6
+        l1_weight = 1e-5
         dropout = 0.8
 
     layer_units = [512, 256]
@@ -185,7 +185,7 @@ def get_autoencoder(input_size, latent_dim, data, regul_stren):
                             output_profiles_val.append(cell_data_val[i][0])
                 input_profiles_val = np.asarray(input_profiles_val)
                 output_profiles_val = np.asarray(output_profiles_val)
-                callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+                callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
                 autoencoder.fit(input_profiles, output_profiles, epochs=nb_frozen_epoch, batch_size=batch_size,
                                 validation_data=(input_profiles_val, output_profiles_val), callbacks=[callback])
             else:

@@ -15,7 +15,7 @@ put '/' at the end.
 
 Run DeepCellState.py to generate the models:
 ```sh
-python3 DeepCellState.py -O models_output -CT A375,HT29 -PT trt_cp -N 1 -SM 0
+python3 DeepCellState.py -O models_output -CT A375,HEPG2 -PT trt_cp -N 1 -SM 0
 ```
 Parameters:
 - ```-O```: Output directory.
