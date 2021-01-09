@@ -40,9 +40,9 @@ def to_profile(df_data, cell, pert):
     return profile
 
 
-os.chdir(open("../data_dir").read().strip())
+os.chdir(open("data_dir").read().strip())
 
-genes = np.loadtxt("gene_symbols.csv", dtype="str")
+genes = np.loadtxt("data/gene_symbols.csv", dtype="str")
 input_file = "data/GSE116436_series_matrix.txt"
 df_data = pd.read_csv(input_file, sep="\t", comment='!', index_col="ID_REF")
 df_gpl = pd.read_csv("data/GPL571-17391.txt", sep="\t", comment='#', index_col="ID")

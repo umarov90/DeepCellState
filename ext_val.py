@@ -5,7 +5,6 @@ import pickle
 import numpy as np
 from scipy import stats
 from tensorflow import keras
-from figures import utils1
 from scipy.stats import ttest_ind
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -40,8 +39,6 @@ def read_profile(file):
         incor = stats.pearsonr(profiles_trt[0].flatten(), p.flatten())[0]
         if incor < 0.5:
             print("Err")
-    utils1.draw_one_profiles([trt_profile], len(genes), file + "trt_profiles.png")
-    utils1.draw_one_profiles([ctrl_profile], len(genes), file + "ctrl_profiles.png")
     profile = np.zeros(trt_profile.shape)
     for i in range(len(genes)):
         if ctrl_profile[i] != 0 and trt_profile[i] != 0:
@@ -54,7 +51,7 @@ def read_profile(file):
     return profile
 
 
-os.chdir(open("../data_dir").read().strip())
+os.chdir(open("data_dir").read().strip())
 genes = np.loadtxt("data/gene_symbols.csv", dtype="str")
 input_data = np.asarray([read_profile("../data/statins/H_Flu.csv"), read_profile("../data/statins/H_Ato.csv"),
                          read_profile("../data/statins/H_Ros.csv"), read_profile("../data/statins/H_Sim.csv")])

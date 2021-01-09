@@ -8,6 +8,11 @@ pip install tensorflow
 ```
 
 To run DeepCellState, download the [data](https://www.dropbox.com/s/dluxw8zryh1hoyf/DeepCellState_data.zip?dl=1) and extract it to some location. Add this path (**parent folder of the data folder**) to to the data_dir file in the project root. 
+For example:
+
+/home/user/Desktop/deepcellstate_test/   
+put '/' at the end. 
+
 Run DeepCellState.py to generate the models:
 ```sh
 python3 DeepCellState.py -O models_output -CT A375,HT29 -PT trt_cp -N 1 -SM 0

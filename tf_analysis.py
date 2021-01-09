@@ -10,7 +10,7 @@ from tensorflow import keras
 tensorflow.compat.v1.disable_eager_execution()
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-os.chdir(open("../data_dir").read().strip())
+os.chdir(open("data_dir").read().strip())
 model = "sub2/best_autoencoder_ext_val/"
 autoencoder = keras.models.load_model(model + "main_model/")
 cell_decoders = {"MCF7": pickle.load(open(model + "MCF7" + "_decoder_weights", "rb")),

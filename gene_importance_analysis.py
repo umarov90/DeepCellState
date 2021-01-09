@@ -12,7 +12,7 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-os.chdir(open("../data_dir").read().strip())
+os.chdir(open("data_dir").read().strip())
 cell_data = CellData("data/lincs_phase_1_2.tsv", "data/folds/ext_val")
 pickle.dump(cell_data, open("cell_data.p", "wb"))
 # cell_data = pickle.load(open("cell_data.p", "rb"))
