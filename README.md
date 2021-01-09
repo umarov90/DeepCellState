@@ -9,7 +9,7 @@ DeepCellState requires ```tensorflow>=2.3.0```, which can be installed via pip:
 pip install tensorflow
 ```
 
-To run DeepCellState, download the [data](https://www.dropbox.com/s/dluxw8zryh1hoyf/DeepCellState_data.zip?dl=1) and extract it to some location. Add this path (**parent folder of the data folder**) to to the data_dir file in the project root. 
+To run DeepCellState, download the [data](https://www.dropbox.com/s/dluxw8zryh1hoyf/DeepCellState_data.zip?dl=1) and extract it to some location. Add this path (**parent folder of the data folder**) to the data_dir file in the project root. 
 For example:
 
 /home/user/Desktop/deepcellstate_test/   

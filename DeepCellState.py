@@ -60,7 +60,7 @@ def main():
     if not os.path.exists(wdir):
         os.makedirs(wdir)
     os.chdir(wdir)
-    copyfile("/home/user/PycharmProjects/DeepFake/deepfake.py", "deepfake.py")
+    # copyfile("/home/user/PycharmProjects/DeepFake/deepfake.py", "deepfake.py")
     df = pd.read_csv("../data/GSE70138_Broad_LINCS_pert_info.txt", sep="\t")
     good = []
     tsne_perts = []
