@@ -1,7 +1,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-# os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow.python.keras import regularizers
 from tensorflow.python.keras import backend as K
@@ -51,7 +51,7 @@ def build(input_size, latent_dim, regul_stren=0):
     else:
         noise_dropout = 0.1
         l1_weight = 1e-4
-        dropout = 0.8
+        dropout = 0.2
 
     layer_units = [512, 256]
     input_shape = (input_size, 1)

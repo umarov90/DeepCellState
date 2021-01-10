@@ -11,7 +11,7 @@ tensorflow.compat.v1.disable_eager_execution()
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 os.chdir(open("data_dir").read().strip())
-model = "sub2/best_autoencoder_ext_val/"
+model = "best_autoencoder_ext_val/"
 autoencoder = keras.models.load_model(model + "main_model/")
 cell_decoders = {"MCF7": pickle.load(open(model + "MCF7" + "_decoder_weights", "rb")),
                  "PC3": pickle.load(open(model +  "PC3" + "_decoder_weights", "rb"))}
@@ -19,14 +19,14 @@ encoder = autoencoder.get_layer("encoder")
 decoder = autoencoder.get_layer("decoder")
 autoencoder.get_layer("decoder").set_weights(cell_decoders["MCF7"])
 cell_data = CellData("data/lincs_phase_1_2.tsv", "data/folds/ext_val")
-symbols = np.loadtxt("gene_symbols.csv", dtype="str")
+symbols = np.loadtxt("data/gene_symbols.csv", dtype="str")
 
 top_genes_num = 50
 top_targets_num = 50
 tf_data = {"MCF7": {}, "Average": {}}
 tf_sum = {"MCF7": {}, "Average": {}}
 tf_cell_types = {}
-directory = "TFS"
+directory = "data/TFS"
 cell_names = set()
 for filename in os.listdir(directory):
     try:

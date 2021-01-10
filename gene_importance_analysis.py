@@ -9,7 +9,7 @@ from numpy import zeros
 from scipy import stats
 from tensorflow import keras
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 os.chdir(open("data_dir").read().strip())
@@ -18,7 +18,8 @@ pickle.dump(cell_data, open("cell_data.p", "wb"))
 # cell_data = pickle.load(open("cell_data.p", "rb"))
 input_size = 978
 latent_dim = 128
-model = "sub2/best_autoencoder_ext_val/"
+
+model = "best_autoencoder_ext_val/"
 autoencoder = keras.models.load_model(model + "main_model/")
 cell_decoders = {}
 for cell in cell_data.cell_types:
@@ -26,10 +27,7 @@ for cell in cell_data.cell_types:
 encoder = autoencoder.get_layer("encoder")
 decoder = autoencoder.get_layer("decoder")
 
-
-
-symbols = np.loadtxt("gene_symbols.csv", dtype="str")
-
+symbols = np.loadtxt("data/gene_symbols.csv", dtype="str")
 final_sets = {}
 importance_scores = zeros((len(cell_data.cell_types), input_size))
 for cn, key in enumerate(cell_data.cell_types):

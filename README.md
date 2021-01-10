@@ -33,7 +33,7 @@ Trained models can be downloaded from:
 [models 2](https://drive.google.com/file/d/1SHHTXpJBZoBhwqK0vvlw9bmwhPv16K3n/view?usp=sharing) (all models used in the paper)
 
 
-Extract them into the same directory as the data folder. 
+Extract them into the same directory as the data folder. Both tf_analysis.py and gene_importance_analysis.py require best_autoencoder_ext_val to be in the same folder as data folder. 
 
 This is how DeepCellState models can be used in a custom script to make predictions:
 
