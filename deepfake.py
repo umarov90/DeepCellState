@@ -51,7 +51,7 @@ def build(input_size, latent_dim, regul_stren=0):
     else:
         noise_dropout = 0.1
         l1_weight = 1e-4
-        dropout = 0.2
+        dropout = 0.9
 
     layer_units = [512, 256]
     input_shape = (input_size, 1)
