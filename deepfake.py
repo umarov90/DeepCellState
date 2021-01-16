@@ -49,7 +49,7 @@ def build(input_size, latent_dim, regul_stren=0):
         l1_weight = 1e-7
         dropout = 0.8
     else:
-        noise_dropout = 0.1
+        noise_dropout = 0.5
         l1_weight = 1e-4
         dropout = 0.9
 
