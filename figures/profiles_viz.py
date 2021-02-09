@@ -1,3 +1,5 @@
+import os
+
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -65,4 +67,29 @@ def draw_scatter_profiles(test_profile, decoded, closest_profile, pname, output_
     plt.close(None)
 
 
-
+def draw_vectors(vectors, output, names):
+    img_data = []
+    for v in vectors:
+        img_data.append(v.flatten())
+    all_data = np.asarray(img_data)
+    maxv = max(abs(np.min(all_data)), abs(np.max(all_data)))
+    vmin = -maxv
+    vmax = +maxv
+    fig, axes = plt.subplots(nrows=len(img_data), ncols=1, figsize=(10, 4))
+    cmap = sns.diverging_palette(250, 15, s=75, l=40, sep=1, as_cmap=True)
+    for j, ax in enumerate(axes.flatten()):
+        hm = sns.heatmap(img_data[j].reshape(1, len(img_data[0])), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
+                         cbar=False, vmin=vmin, vmax=vmax, xticklabels=100)
+        ax.set_ylabel(str(names[j]), rotation=45)
+        ax.tick_params(axis='x', rotation=0)
+        ax.get_yaxis().set_label_coords(-0.1, 0.3)
+        ax.yaxis.set_ticks_position('none')
+        for label in hm.get_yticklabels():
+            label.set_visible(False)
+    plt.tight_layout()
+    fig.subplots_adjust(right=0.84, top=0.8, wspace=0.35)
+    cax = fig.add_axes([.90, .2, .02, .6])
+    points = plt.scatter([], [], c=[], vmin=vmin, vmax=vmax, cmap=cmap)
+    fig.colorbar(points, cax=cax)
+    plt.savefig(output)
+    plt.close(None)

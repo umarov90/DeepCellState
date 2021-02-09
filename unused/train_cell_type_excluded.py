@@ -265,7 +265,7 @@ if should_train:
                 pickle.dump(cell_decoders[cell], open("./models/" + cell + "_decoder_weights", "wb"))
                 del decoder
 
-        utils1.draw_vectors(encoder.predict(val_data), "latent_vectors/" + str(e) + "_1")
+        utils1.draw_vectors(encoder.predict(val_data), "latent_vectors/" + str(e) + "_1", cell_names)
         print("Training decoders again")
         decoder = autoencoder.get_layer("decoder")
         encoder_weights_copy = encoder.get_weights().copy()

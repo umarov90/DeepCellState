@@ -1,9 +1,9 @@
 import os
-from unused.VAE import VAE
+from competitors.VAE import VAE
 from unused.sampling import Sampling
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.layers import LeakyReLU
@@ -220,12 +220,12 @@ def get_autoencoder(input_size, latent_dim, data):
             target_profiles = np.asarray(target_profiles)
             if count_im < 5:
                 z_mean, z_log_var, z = encoder.predict(pert_profiles)
-                utils1.draw_vectors(z, "vectors/" + pert + "_1.png")
+                utils1.draw_vectors(z, "vectors/" + pert + "_1.png", cell_names)
 
             train_step(autoencoder, discriminator, pert_profiles, target_profiles, e)
             if count_im < 5:
                 z_mean, z_log_var, z = encoder.predict(pert_profiles)
-                utils1.draw_vectors(z, "vectors/" + pert + "_2.png")
+                utils1.draw_vectors(z, "vectors/" + pert + "_2.png", cell_names)
             count_im = count_im + 1
             cell_decoders[cell] = decoder.get_weights().copy()
             cell_discriminators[cell] = discriminator.get_weights().copy()
