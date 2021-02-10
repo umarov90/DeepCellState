@@ -12,7 +12,7 @@ sns.set(font_scale=1.3, style='ticks')
 fig, axs = plt.subplots(1,1,figsize=(16,4))
 
 n = 0
-df = pd.read_csv("data/competitors/all_results.csv", sep=",")
+df = pd.read_csv("figures_data/all_results.csv", sep=",")
 newpal = sns.color_palette("Set2")
 a = newpal[1]
 b = newpal[4]
@@ -25,3 +25,6 @@ plt.title("Comparison with alternative approaches", loc='center', fontsize=18)
 plt.tight_layout()
 axs.xaxis.set_ticks_position('none')
 plt.savefig("figures/violin_competitors.svg")
+
+t, p = ttest_ind(df["DeepCellState"].to_list(), df["VAE + Anchor loss"].to_list())
+print("p value: " + str(p))
