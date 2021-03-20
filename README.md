@@ -20,7 +20,7 @@ To run DeepCellState, download the [data](https://www.dropbox.com/s/merj99vfp4fp
 For example:
 
 /home/user/Desktop/deepcellstate_test/   
-put '/' at the end. 
+(please have '/' at the end) 
 
 Run DeepCellState.py to generate the models (takes 1-3 hours depending on your GPU):
 ```sh
@@ -44,8 +44,8 @@ Trained models can be downloaded from:
 [models 3](https://drive.google.com/file/d/1SHHTXpJBZoBhwqK0vvlw9bmwhPv16K3n/view?usp=sharing) (all the models used in the paper)
 
 
-Extract them into the same directory as the data folder. All ext_val.py, ext_val_cancer.py, tf_analysis.py, and gene_importance_analysis.py require best_autoencoder_ext_val (link 'Models 1' above) to be in the same folder as the data folder.
-To reproduce external data validation performed in the paper, download the [raw data](https://drive.google.com/file/d/1uZReFhhAXmudAyEt4lSX-of2CI2d1eYv/view?usp=sharing) and place it in the same folder as specified in 'data_dir' file.
+Extract them into the same directory as the data folder. All ext_val.py, ext_val_cancer.py, tf_analysis.py, and gene_importance_analysis.py require best_autoencoder_ext_val (link 'models 1' above) to be in the same folder as the data folder.
+To reproduce external data validation performed in the paper, download the [raw data](https://drive.google.com/file/d/1uZReFhhAXmudAyEt4lSX-of2CI2d1eYv/view?usp=sharing) and place it in the 'data_dir'/data/ folder.
 Run ext_val.py for the statin data and ext_val_cancer.py for the anti-cancer data. 
 
 Figures from the paper can be recreated by running scripts in the 'figures' folder. 
