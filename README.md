@@ -9,9 +9,9 @@ DeepCellState requires ```tensorflow==2.3.0```, which can be installed via pip:
 pip install tensorflow==2.3.0
 ```
 
-Please also make sure you have pandas installed:
+Please also make sure you have pandas 1.0 installed:
 ```sh
-pip install pandas
+pip install pandas==1.0
 ```
 
 To run DeepCellState, download the [data](https://www.dropbox.com/s/merj99vfp4fpdg2/DeepCellState_data.zip?dl=1) ([Mirror](https://drive.google.com/file/d/1lGnUANHpKU33pEvl7meEEVMG7wJM1Th1/view?usp=sharing)) and extract it to some location. Add this path (**parent folder of the data folder**) to the 'data_dir' file in the repository root, after you clone the repository to your machine. 
