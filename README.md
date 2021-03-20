@@ -4,12 +4,17 @@ Drug treatment induces cell type specific transcriptional programs, and as the n
 
 The implementation details can be found in the [paper](https://doi.org/10.1101/2020.12.14.422792).
 
-DeepCellState requires ```tensorflow>=2.3.0```, which can be installed via pip:
+DeepCellState requires ```tensorflow==2.3.0```, which can be installed via pip:
 ```sh
-pip install tensorflow
+pip install tensorflow==2.3.0
 ```
 
-To run DeepCellState, download the [data](https://www.dropbox.com/s/merj99vfp4fpdg2/DeepCellState_data.zip?dl=1) and extract it to some location. Add this path (**parent folder of the data folder**) to the data_dir file in the project root. 
+Please also make sure you have pandas installed:
+```sh
+pip install pandas
+```
+
+To run DeepCellState, download the [data](https://www.dropbox.com/s/merj99vfp4fpdg2/DeepCellState_data.zip?dl=1) ([Mirror](https://drive.google.com/file/d/1lGnUANHpKU33pEvl7meEEVMG7wJM1Th1/view?usp=sharing)) and extract it to some location. Add this path (**parent folder of the data folder**) to the 'data_dir' file in the repository root, after you clone the repository to your machine. 
 For example:
 
 /home/user/Desktop/deepcellstate_test/   
@@ -28,7 +33,7 @@ Parameters:
 
 Trained models can be downloaded from:
 
-[models 1](https://www.dropbox.com/s/7c77tzxaefhom2d/DeepCellState_models.zip?dl=1) (2 cell types and external validation)
+[models 1](https://www.dropbox.com/s/7c77tzxaefhom2d/DeepCellState_models.zip?dl=1) ([Mirror](https://drive.google.com/file/d/14__66BjjDTyB19p0NbK3r_eNOujV_60Z/view?usp=sharing)) (2 cell types and external validation)
 
 [models 2](https://drive.google.com/file/d/1SHHTXpJBZoBhwqK0vvlw9bmwhPv16K3n/view?usp=sharing) (all models used in the paper)
 
@@ -51,4 +56,11 @@ pc3_response = ... # get an array of dimension 1, 978, 1
 mcf7_predicted_response = autoencoder.predict(pc3_response) 
 ```
 
+Figures from the paper can be recreated by running scripts in 'figures' folder. Please install matplotlib and seaborn first:
+```sh
+pip install matplotlib
+pip install seaborn
+```
+
 To generate profile figures during training, uncomment the lines in DeepCellState.py.
+Please contact us if you have any issues running the code!

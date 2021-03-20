@@ -23,10 +23,13 @@ import numpy as np
 import random
 import shutil
 
-tf.compat.v1.disable_eager_execution()
-physical_devices = tf.config.experimental.list_physical_devices('GPU')
-assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
-config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
+try:
+    tf.compat.v1.disable_eager_execution()
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    if len(physical_devices) > 0:
+        config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
+except:
+    pass
 
 nb_total_epoch = 100
 nb_autoencoder_epoch = 100
