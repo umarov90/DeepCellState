@@ -9,12 +9,14 @@ DeepCellState requires ```tensorflow==2.3.0```, which can be installed via pip:
 pip install tensorflow==2.3.0
 ```
 
-Please also make sure you have pandas 1.0 installed:
+Also, please install the following packages:
 ```sh
 pip install pandas==1.0
+pip install matplotlib
+pip install seaborn
 ```
 
-To run DeepCellState, download the [data](https://www.dropbox.com/s/merj99vfp4fpdg2/DeepCellState_data.zip?dl=1) ([Mirror](https://drive.google.com/file/d/1lGnUANHpKU33pEvl7meEEVMG7wJM1Th1/view?usp=sharing)) and extract it to some location. Add this path (**parent folder of the data folder**) to the 'data_dir' file in the repository root, after you clone the repository to your machine. 
+To run DeepCellState, download the [data](https://www.dropbox.com/s/merj99vfp4fpdg2/DeepCellState_data.zip?dl=1) ([Mirror](https://drive.google.com/file/d/1JV-6xYl-uMswzIP3-dhmiG-LNFmiCXhx/view?usp=sharing)) and extract it to some location. Add this path (**parent folder of the data folder**) to the 'data_dir' file in the repository root, after you clone the repository to your machine. 
 For example:
 
 /home/user/Desktop/deepcellstate_test/   
@@ -35,12 +37,21 @@ After training is complete, the output directory will contain the new models and
 
 Trained models can be downloaded from:
 
-[models 1](https://www.dropbox.com/s/7c77tzxaefhom2d/DeepCellState_models.zip?dl=1) ([Mirror](https://drive.google.com/file/d/14__66BjjDTyB19p0NbK3r_eNOujV_60Z/view?usp=sharing)) (two cell types and external validation)
+[models 1](https://www.dropbox.com/s/9b0l6zczdjp28im/DeepCellState_model_ext_val.zip?dl=1) ([Mirror](https://drive.google.com/file/d/1zD44n2dd7-jMJqCRYSRSxPHeR7Rn-lgx/view?usp=sharing)) (external validation and analysis model. Decoders: HEPG2, MCF7, PC3)
 
-[models 2](https://drive.google.com/file/d/1SHHTXpJBZoBhwqK0vvlw9bmwhPv16K3n/view?usp=sharing) (all models used in the paper)
+[models 2](https://www.dropbox.com/s/02ibrv4lasye36i/DeepCellState_models_2cells.zip?dl=1) ([Mirror](https://drive.google.com/file/d/1_KbeF7_euic4v6UnYCThq34_REnBjz6-/view?usp=sharing)) (two cell types 10-fold cross-validation models. Decoders: MCF7, PC3)
+
+[models 3](https://drive.google.com/file/d/1SHHTXpJBZoBhwqK0vvlw9bmwhPv16K3n/view?usp=sharing) (all the models used in the paper)
 
 
-Extract them into the same directory as the data folder. All ext_val.py, ext_val_cancer, tf_analysis.py, and gene_importance_analysis.py require best_autoencoder_ext_val to be in the same folder as the data folder. 
+Extract them into the same directory as the data folder. All ext_val.py, ext_val_cancer.py, tf_analysis.py, and gene_importance_analysis.py require best_autoencoder_ext_val (link 'Models 1' above) to be in the same folder as the data folder.
+To reproduce external data validation performed in the paper, download the [raw data](https://drive.google.com/file/d/1uZReFhhAXmudAyEt4lSX-of2CI2d1eYv/view?usp=sharing) and place it in the same folder as specified in 'data_dir' file.
+Run ext_val.py for the statin data and ext_val_cancer.py for the anti-cancer data. 
+
+Figures from the paper can be recreated by running scripts in the 'figures' folder. 
+To generate profile figures during training, uncomment the lines in DeepCellState.py.
+
+DeepCellState was implemented and tested on Ubuntu 18. Please contact us if you have any issues running the code!
 
 This is how DeepCellState models can be used in a custom script to make predictions:
 
@@ -57,13 +68,3 @@ pc3_response = ... # get an array of dimension 1, 978, 1
 # convert PC3 response to MCF7 response
 mcf7_predicted_response = autoencoder.predict(pc3_response) 
 ```
-
-Figures from the paper can be recreated by running scripts in the 'figures' folder. Please install matplotlib and seaborn first:
-```sh
-pip install matplotlib
-pip install seaborn
-```
-
-To generate profile figures during training, uncomment the lines in DeepCellState.py.
-
-DeepCellState was implemented and tested on Ubuntu 18. Please contact us if you have any issues running the code!
