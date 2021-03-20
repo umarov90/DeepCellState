@@ -1,6 +1,6 @@
 ## DeepCellState: drug response prediction
 ![Framework](framework.png)
-Drug treatment induces cell type specific transcriptional programs, and as the number of combinations of drugs and cell types grows, the cost for exhaustive screens measuring the transcriptional drug response becomes intractable. We developed DeepCellState, a neural network auto-encoder framework based on the DeepFake approach, for prediction of the induced transcriptional state in a cell type after drug treatment, based on the drug response in another cell type.
+Drug treatment induces cell type specific transcriptional programs, and as the number of combinations of drugs and cell types grows, the cost for exhaustive screens measuring the transcriptional drug response becomes intractable. We developed DeepCellState, a neural network auto-encoder framework, for prediction of the induced transcriptional state in a cell type after drug treatment, based on the drug response in another cell type.
 
 The implementation details can be found in the [paper](https://doi.org/10.1101/2020.12.14.422792).
 
@@ -20,7 +20,7 @@ For example:
 /home/user/Desktop/deepcellstate_test/   
 put '/' at the end. 
 
-Run DeepCellState.py to generate the models:
+Run DeepCellState.py to generate the models (takes 1-3 hours depending on your GPU):
 ```sh
 python3 DeepCellState.py -O models_output -CT A375,HEPG2 -PT trt_cp -N 1 -SM 0
 ```
@@ -31,9 +31,11 @@ Parameters:
 - ```-N```: Number of models trained for each fold. The model with best validation performance is picked.
 - ```-SM```: Set to 1 to train drug MoA family models or set to 2 to train external validation model. Defaults to 0, i.e. 10-fold cross-validation.
 
+After training is complete, the output directory will contain the new models and text files with the performance.
+
 Trained models can be downloaded from:
 
-[models 1](https://www.dropbox.com/s/7c77tzxaefhom2d/DeepCellState_models.zip?dl=1) ([Mirror](https://drive.google.com/file/d/14__66BjjDTyB19p0NbK3r_eNOujV_60Z/view?usp=sharing)) (2 cell types and external validation)
+[models 1](https://www.dropbox.com/s/7c77tzxaefhom2d/DeepCellState_models.zip?dl=1) ([Mirror](https://drive.google.com/file/d/14__66BjjDTyB19p0NbK3r_eNOujV_60Z/view?usp=sharing)) (two cell types and external validation)
 
 [models 2](https://drive.google.com/file/d/1SHHTXpJBZoBhwqK0vvlw9bmwhPv16K3n/view?usp=sharing) (all models used in the paper)
 
@@ -56,11 +58,12 @@ pc3_response = ... # get an array of dimension 1, 978, 1
 mcf7_predicted_response = autoencoder.predict(pc3_response) 
 ```
 
-Figures from the paper can be recreated by running scripts in 'figures' folder. Please install matplotlib and seaborn first:
+Figures from the paper can be recreated by running scripts in the 'figures' folder. Please install matplotlib and seaborn first:
 ```sh
 pip install matplotlib
 pip install seaborn
 ```
 
 To generate profile figures during training, uncomment the lines in DeepCellState.py.
-Please contact us if you have any issues running the code!
+
+DeepCellState was implemented and tested on Ubuntu 18. Please contact us if you have any issues running the code!
