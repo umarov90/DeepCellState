@@ -52,10 +52,6 @@ To generate profile figures during training, uncomment the lines in DeepCellStat
 
 DeepCellState was implemented and tested on Ubuntu 18. Please contact us if you have any issues running the code!
 
-The input and output for FaLRTC which was used in the manuscript can be downloaded from:
-
-[FaLRTC](https://drive.google.com/file/d/1-h5xduucFhQ_Skd21GPwsObQptdkiqBQ/view?usp=sharing)
-
 This is how DeepCellState models can be used in a custom script to make predictions:
 
 ```python
