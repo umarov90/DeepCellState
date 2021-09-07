@@ -5,8 +5,11 @@ import pandas as pd
 
 
 class CellData:
-    def __init__(self, data_file, test_fold, cell_types="MCF7,PC3", pert_type="trt_cp"):
-        data, meta, all_pert_ids = self.parse_data(data_file, cell_types, pert_type)
+    def __init__(self, data_file, test_fold, cell_types="MCF7,PC3", pert_type="trt_cp", revision=False):
+        if revision:
+            data, meta, all_pert_ids = self.parse_data_split(data_file)
+        else:
+            data, meta, all_pert_ids = self.parse_data(data_file, cell_types, pert_type)
         train_data, train_meta, test_data, test_meta, val_data, val_meta,\
             cell_types, train_perts, val_perts, test_perts = self.split_data(data, meta, all_pert_ids, test_fold)
         meta_dictionary_pert = {}
@@ -51,6 +54,24 @@ class CellData:
         print(test_data.shape)
         print("----------------------------------------------")
 
+    def parse_data_split(self, file):
+        perts = pd.read_csv(file + "/perts.csv", sep="\t", header=None, names=["Values"])['Values'].values.tolist()
+        cell_types = pd.read_csv(file + "/cell_types.csv", sep="\t", header=None, names=["Values"])[
+            'Values'].values.tolist()
+        pert_meta = []
+        data = []
+        for cell in cell_types:
+            df = pd.read_csv(file + "/tensor/" + cell + ".csv", sep=",",  header=None).values
+            for i in range(len(df)):
+                if np.isnan(df[i]).any():
+                    continue
+                data.append(df[i])
+                pert_meta.append([cell, perts[i], "trt_cp"])
+        data = np.asarray(data)
+        data = data / np.max(np.abs(data))
+        data = np.expand_dims(data, axis=-1)
+        return data, pert_meta, perts
+
     def parse_data(self, file, cell_types, pert_type):
         print("Parsing data at " + file)
         df = pd.read_csv(file, sep="\t")
@@ -58,7 +79,8 @@ class CellData:
         print("Total: " + str(df.shape))
         df = df[(df['pert_type'] == pert_type)]
         # df = df[(df['pert_type'] == "trt_sh.cgs")]
-        df = df[df['cell_id'].isin(cell_types.split(","))]
+        if cell_types is not None:
+            df = df[df['cell_id'].isin(cell_types.split(","))]
         print(df.groupby(['cell_id']).size())
         print("Cell filtering: " + str(df.shape))
         # df['pert_idose'] = df['pert_idose'].str.replace(' um','')
@@ -101,12 +123,44 @@ class CellData:
         np.random.set_state(rng_state)
         np.random.shuffle(meta)
 
-        test_perts = np.loadtxt(test_fold, dtype='str')
-        z = list(all_pert_ids - set(test_perts))
-        shuffle(z)
-        split = int(0.95 * len(z))
-        train_perts = z[:split]
-        val_perts = z[split:]
+        if test_fold is not None:
+            test_perts = np.loadtxt(test_fold, dtype='str')
+            # Special case for Hodos revision
+            if "," in test_perts[0]:
+                test_fold_data = test_perts
+                train_data = np.asarray(
+                    [data[i] for i, m in enumerate(meta) if m[0] + "," + m[1] not in test_fold_data])  # and m[0] != "A375"
+                test_data = np.asarray([data[i] for i, m in enumerate(meta) if m[0] + "," + m[1] in test_fold_data])
+                train_meta = np.asarray(
+                    [m for i, m in enumerate(meta) if m[0] + "," + m[1] not in test_fold_data])  # and m[0] != "A375"
+                test_meta = np.asarray([m for i, m in enumerate(meta) if m[0] + "," + m[1] in test_fold_data])
+                split = int(0.9 * len(train_data))
+                val_data = train_data[split:]
+                val_meta = train_meta[split:]
+                train_data = train_data[:split]
+                train_meta = train_meta[:split]
+                test_perts = []
+                train_perts = []
+                val_perts = []
+                for m in train_meta:
+                    if m[1] not in train_perts:
+                        train_perts.append(m[1])
+                for m in test_meta:
+                    if m[1] not in test_perts:
+                        test_perts.append(m[1])
+                for m in val_meta:
+                    if m[1] not in val_perts:
+                        val_perts.append(m[1])
+                return train_data, train_meta, test_data, test_meta, val_data, val_meta, cell_types, train_perts, val_perts, test_perts
+            z = list(all_pert_ids - set(test_perts))
+            shuffle(z)
+            split = int(0.95 * len(z))
+            train_perts = z[:split]
+            val_perts = z[split:]
+        else:
+            train_perts = list(all_pert_ids)
+            test_perts = []
+            val_perts = []
         # val_perts = val_perts[:min(len(val_perts), int(0.1 * len(z)))]
 
         train_data = np.asarray(
@@ -133,6 +187,16 @@ class CellData:
         else:
             return -1, None, None, None
 
+
+    def get_profile2(self, data, meta_data):
+        pert_list = [p[1] for p in meta_data]
+        if len(pert_list) > 0:
+            random_best = randint(0, len(pert_list) - 1)
+            mean_profile = np.mean(np.asarray(data[pert_list]), axis=0, keepdims=True)
+            return random_best, np.asarray([data[pert_list[random_best]]]), mean_profile, data[pert_list]
+        else:
+            return -1, None, None, None
+
     def get_profile_cell(self, data, meta_data, cell):
         pert_list = [p[1] for p in meta_data if p[0][0] == cell]
         if len(pert_list) > 0:
@@ -141,8 +205,8 @@ class CellData:
             return None
 
     def get_profile_cell_pert(self, data, meta_data, cell, pert):
-        pert_list = [i for i, p in enumerate(meta_data) if p[0] == cell and p[1] == pert]
+        pert_list = [p for i, p in enumerate(meta_data) if p[0][0] == cell and p[0][1] == pert]
         if len(pert_list) > 0:
-            return data[pert_list]
+            return data[pert_list[0][1]]
         else:
             return None

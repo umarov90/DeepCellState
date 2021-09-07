@@ -9,7 +9,7 @@ from scipy.stats import ttest_ind
 
 os.chdir(open("../data_dir").read().strip())
 sns.set(font_scale=1.3, style='ticks')
-fig, axs = plt.subplots(1,1,figsize=(16,4))
+fig, axs = plt.subplots(1,1,figsize=(8,5))
 
 n = 0
 df = pd.read_csv("figures_data/all_results.csv", sep=",")
@@ -21,6 +21,8 @@ newpal[4] = a
 sns.violinplot(data=df, ax=axs, palette=newpal)
 axs.set(ylabel='PCC')
 axs.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+plt.xticks(rotation=30)
+plt.xticks(fontsize=12)
 plt.title("Comparison with alternative approaches", loc='center', fontsize=18)
 plt.tight_layout()
 axs.xaxis.set_ticks_position('none')

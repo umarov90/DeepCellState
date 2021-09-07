@@ -17,7 +17,7 @@ def get_options():
                         type=str, help='Comma separated list of cell types to use in addition to MCF7 and PC3')
     parser.add_argument('-PT', metavar='pert type', default="trt_cp",
                         type=str, help='Perturbation type to be used, defaults to trt_cp')
-    parser.add_argument('-N', metavar='number of runs', default=2,
+    parser.add_argument('-N', metavar='number of runs', default=1,
                         type=int, help='Number of models trained for each fold.'
                                        ' The model with best validation performance is picked.')
     parser.add_argument('-SM', metavar='special models', default=0,
@@ -35,6 +35,7 @@ def test_loss(prediction, ground_truth):
 
 
 def main():
+    revision_hodos = False
     random.seed(0)
     np.random.seed(0)
     args = get_options()
@@ -68,7 +69,17 @@ def main():
     tsne_latent = []
     for r, test_fold in enumerate(test_folds):
         test_fold = str(test_fold)
+        # For Hodos with our data
+        # regul_stren = 1
+        # cell_data = CellData("../data/lincs_phase_1_2.tsv", "../data/hodos_folds/" + test_fold, None, args.PT)
+
+        # For Hodos with their data
+        # regul_stren = 1
+        # cell_data = CellData("../Hodos/their_data/hodos_data_large_tensor", "../data/hodos_folds_their_data/" + test_fold, None, "trt_cp", revision=True)
+
+        # Normal run
         cell_data = CellData("../data/lincs_phase_1_2.tsv", folds_folder + test_fold, "MCF7,PC3," + args.CT, args.PT)
+
         autoencoder, cell_decoders = deepfake.get_best_autoencoder(input_size, latent_dim,
                                                                    cell_data, test_fold, args.N, regul_stren)
         encoder = autoencoder.get_layer("encoder")
@@ -88,13 +99,32 @@ def main():
             test_meta_object = cell_data.test_meta[i]
             if test_meta_object[2] != test_trt:
                 continue
-            if test_meta_object[0] not in ["MCF7", "PC3"]:
-                continue
-            closest, closest_profile, mean_profile, all_profiles = cell_data.get_profile(cell_data.test_data,
-                                                                                         cell_data.meta_dictionary_pert_test[
-                                                                                             test_meta_object[1]],
-                                                                                         test_meta_object)
+            # if test_meta_object[0] not in ["MCF7", "PC3"]:
+            #     continue
+            if revision_hodos:
+                if test_meta_object[1] in cell_data.meta_dictionary_pert.keys():
+                    closest, closest_profile, mean_profile, all_profiles = cell_data.get_profile(cell_data.train_data,
+                                                                                            cell_data.meta_dictionary_pert[
+                                                                                                test_meta_object[1]],
+                                                                                            test_meta_object)
+                elif test_meta_object[1] in cell_data.meta_dictionary_pert_val.keys():
+                    closest, closest_profile, mean_profile, all_profiles = cell_data.get_profile(cell_data.val_data,
+                                                                                                 cell_data.meta_dictionary_pert_val[
+                                                                                                     test_meta_object[
+                                                                                                         1]],
+                                                                                                 test_meta_object)
+                else:
+                    all_results.append(str(0) + ", " + str(0) + ", "
+                                       + test_meta_object[0] + ", " + test_meta_object[1] + ", " + str(0))
+                    continue
+            else:
+                closest, closest_profile, mean_profile, all_profiles = cell_data.get_profile(cell_data.test_data,
+                                                                                             cell_data.meta_dictionary_pert_test[
+                                                                                                 test_meta_object[1]],
+                                                                                             test_meta_object)
             if closest_profile is None:
+                all_results.append(str(0) + ", " + str(0) + ", "
+                                   + test_meta_object[0] + ", " + test_meta_object[1] + ", " + str(0))
                 continue
             # if test_meta_object[1] in seen_perts:
             #     continue
@@ -205,7 +235,7 @@ def main():
             f.write(str(latent_dim) + "\t" + performance) # str(tr_size) + "\t" +
             f.write("\n")
 
-        with open("all_results", 'a+') as f:
+        with open("all_results_2", 'a+') as f:
             f.write("\n".join(all_results))
             f.write("\n")
 

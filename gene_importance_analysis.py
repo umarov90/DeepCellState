@@ -70,7 +70,7 @@ for cn, key in enumerate(cell_data.cell_types):
     c = Counter(total_results)
     for i in range(978):
         importance_scores[cn][i] = c[i] / num
-    top_genes_tuples = c.most_common(200)
+    top_genes_tuples = c.most_common(50)
     top_genes = []
     for x, y in top_genes_tuples:
         top_genes.append(x)

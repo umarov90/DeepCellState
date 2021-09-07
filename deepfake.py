@@ -23,6 +23,8 @@ import numpy as np
 import random
 import shutil
 
+revision_hodos = False
+
 tf.compat.v1.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
@@ -167,27 +169,34 @@ def get_autoencoder(input_size, latent_dim, data, regul_stren):
                         output_profiles.append(cell_data[i][0])
 
             input_profiles = np.asarray(input_profiles)
+            if len(input_profiles) == 0:
+                continue
             output_profiles = np.asarray(output_profiles)
             autoencoder.get_layer("decoder").set_weights(cell_decoders[cell])
             if e == nb_total_epoch - 1:
-                cell_data_val = np.asarray([[data.val_data[i], data.val_meta[i]]
-                                            for i, p in enumerate(data.val_meta) if p[0] == cell])
-                input_profiles_val = []
-                output_profiles_val = []
-                for i in range(len(cell_data_val)):
-                    closest, profile, mean_profile, all_profiles = data.get_profile(data.val_data,
-                                                                                    data.meta_dictionary_pert_val[
-                                                                                        cell_data_val[i][1][1]],
-                                                                                    cell_data_val[i][1])
-                    if mean_profile is not None:
-                        for p in all_profiles:
-                            input_profiles_val.append(p)
-                            output_profiles_val.append(cell_data_val[i][0])
-                input_profiles_val = np.asarray(input_profiles_val)
-                output_profiles_val = np.asarray(output_profiles_val)
-                callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-                autoencoder.fit(input_profiles, output_profiles, epochs=nb_frozen_epoch, batch_size=batch_size,
-                                validation_data=(input_profiles_val, output_profiles_val), callbacks=[callback])
+                try:
+                    cell_data_val = np.asarray([[data.val_data[i], data.val_meta[i]]
+                                                for i, p in enumerate(data.val_meta) if p[0] == cell])
+                    input_profiles_val = []
+                    output_profiles_val = []
+                    for i in range(len(cell_data_val)):
+                        closest, profile, mean_profile, all_profiles = data.get_profile(data.val_data,
+                                                                                        data.meta_dictionary_pert_val[
+                                                                                            cell_data_val[i][1][1]],
+                                                                                        cell_data_val[i][1])
+                        if mean_profile is not None:
+                            for p in all_profiles:
+                                input_profiles_val.append(p)
+                                output_profiles_val.append(cell_data_val[i][0])
+                    if len(input_profiles_val) == 0:
+                        continue
+                    input_profiles_val = np.asarray(input_profiles_val)
+                    output_profiles_val = np.asarray(output_profiles_val)
+                    callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+                    autoencoder.fit(input_profiles, output_profiles, epochs=nb_frozen_epoch, batch_size=batch_size,
+                                    validation_data=(input_profiles_val, output_profiles_val), callbacks=[callback])
+                except Exception as eeee:
+                    pass
             else:
                 autoencoder.fit(input_profiles, output_profiles, epochs=2, batch_size=batch_size)
 
@@ -231,14 +240,20 @@ def get_autoencoder(input_size, latent_dim, data, regul_stren):
         seen_perts = []
         for i in range(len(data.val_data)):
             val_meta_object = data.val_meta[i]
-            if val_meta_object[0] not in ["MCF7", "PC3"]:
-                continue
+            # if val_meta_object[0] not in ["MCF7"]:
+            #     continue
             # if val_meta_object[1] in seen_perts:
             #     continue
-            closest, closest_profile, mean_profile, all_profiles = data.get_profile(data.val_data,
-                                                                                    data.meta_dictionary_pert_val[
-                                                                                        val_meta_object[1]],
-                                                                                    val_meta_object)
+            if revision_hodos and val_meta_object[1] in data.meta_dictionary_pert.keys():
+                closest, closest_profile, mean_profile, all_profiles = data.get_profile(data.train_data,
+                                                                                        data.meta_dictionary_pert[
+                                                                                            val_meta_object[1]],
+                                                                                        val_meta_object)
+            else:
+                closest, closest_profile, mean_profile, all_profiles = data.get_profile(data.val_data,
+                                                                                        data.meta_dictionary_pert_val[
+                                                                                            val_meta_object[1]],
+                                                                                        val_meta_object)
             if closest_profile is None:
                 continue
             seen_perts.append(val_meta_object[1])

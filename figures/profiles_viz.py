@@ -4,28 +4,44 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from scipy import stats
+
 matplotlib.use("Agg")
 sns.set(font_scale=1.3, style='ticks')
 
 
-def draw_profiles(test_profile, decoded, closest_profile, pname, input_size, output_file):
+def draw_profiles(test_profile, decoded, closest_profile, pname, input_size, bp, dp, output_file):
     img_data = [closest_profile.flatten(), decoded.flatten(), test_profile.flatten()]
+    perf = {0: [], 1: []}
+    for i in range(0, 1000, 100):
+        if stats.pearsonr(closest_profile.flatten()[i: i + 100], test_profile.flatten()[i: i + 100])[0] > 0.5:
+            perf[0].append("green")
+        else:
+            perf[0].append("red")
+        if stats.pearsonr(decoded.flatten()[i: i + 100], test_profile.flatten()[i: i + 100])[0] > 0.5:
+            perf[1].append("green")
+        else:
+            perf[1].append("red")
+
     all_data = np.asarray(img_data)
     maxv = max(abs(np.min(all_data)), abs(np.max(all_data)))
     vmin = -maxv
     vmax = +maxv
-    names = ["Baseline", "DeepCellState", "Ground truth"]
+    names = [f"Baseline [{bp:.2f}]", f"DeepCellState [{dp:.2f}]", "Ground truth"]
     fig, axes = plt.subplots(nrows=len(img_data), ncols=1, figsize=(10, 4))
     cmap = sns.diverging_palette(250, 15, s=75, l=40, sep=1, as_cmap=True)
     for j, ax in enumerate(axes.flatten()):
         hm = sns.heatmap(img_data[j].reshape(1, input_size), linewidth=0.0, rasterized=True, cmap=cmap, ax=ax,
-                             cbar=False, vmin=vmin, vmax=vmax, xticklabels=100)
-        ax.set_ylabel(names[j], rotation=45)
+                         cbar=False, vmin=vmin, vmax=vmax, xticklabels=100)
+        ax.set_ylabel(names[j], rotation=45, fontsize=12)
         ax.tick_params(axis='x', rotation=0)
-        ax.get_yaxis().set_label_coords(-0.1, 0.3)
+        ax.get_yaxis().set_label_coords(-0.15, 0.3)
         ax.yaxis.set_ticks_position('none')
         for label in hm.get_yticklabels():
             label.set_visible(False)
+        if j < 2:
+            for t, tick_label in enumerate(hm.axes.get_xticklabels()):
+                tick_label.set_color(perf[j][t])
     plt.tight_layout()
     fig.subplots_adjust(right=0.84, top=0.8, wspace=0.35)
     cax = fig.add_axes([.90, .2, .02, .6])
