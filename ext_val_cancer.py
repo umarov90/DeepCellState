@@ -15,10 +15,13 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-tf.compat.v1.disable_eager_execution()
-physical_devices = tf.config.experimental.list_physical_devices('GPU')
-assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
-config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
+try:
+    tf.compat.v1.disable_eager_execution()
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    if len(physical_devices) > 0:
+        config1 = tf.config.experimental.set_memory_growth(physical_devices[0], True)
+except:
+    pass
 
 
 def to_profile(df_data, cell, pert):
