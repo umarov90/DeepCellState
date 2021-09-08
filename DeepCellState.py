@@ -71,7 +71,7 @@ def main():
         test_fold = str(test_fold)
         # For Hodos with our data
         # regul_stren = 1
-        # cell_data = CellData("../data/lincs_phase_1_2.tsv", "../data/hodos_folds/" + test_fold, None, args.PT)
+        # cell_data = CellData("../data/lincs_phase_1_2.tsv", "../Hodos/our_data/hodos_folds_our_data/" + test_fold, None, args.PT)
 
         # For Hodos with their data
         # regul_stren = 1

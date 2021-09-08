@@ -30,7 +30,7 @@ folds = np.array_split(all_data, 10)
 
 # write the folds to the disk
 for i, fold in enumerate(folds):
-    with open("Hodos/our_data/hodos_folds/"+str(i+1), 'w+') as f:
+    with open("Hodos/our_data/hodos_folds_our_data/"+str(i+1), 'w+') as f:
         f.write('\n'.join(list(fold.flatten())))
 
 # Construct input for methods from Hodos et al where test set is replaced by nan values

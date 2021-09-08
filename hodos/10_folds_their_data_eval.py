@@ -45,7 +45,7 @@ for i, fold in enumerate(folds):
                 perf.append([pcc_dnpp, pcc_falrtc, cell, pert])
 
 # output the results
-with open("Hodos/their_data/perf_hodos.csv", 'w+') as f:
+with open("Hodos/their_data/perf_hodos_their_data.csv", 'w+') as f:
     f.write(f"DNPP,FaLRTC,Cell,Pert\n")
     for p in perf:
         f.write(f"{p[0]},{p[1]},{p[2]},{p[3]}\n")
